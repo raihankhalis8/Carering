@@ -1,6 +1,6 @@
 # smart_ring_liberika
 
-A new Flutter project.
+A Smart Ring App
 
 ## Getting Started
 
