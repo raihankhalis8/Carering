@@ -1314,9 +1314,289 @@ class _HealthMetricsScreenState extends State<HealthMetricsScreen> with SingleTi
   }
 
   Widget _buildHealthAlertsTab() {
-    return const Center(
-      child: Text('Health Alerts - Implementation pending',
-          style: TextStyle(fontSize: 16, color: Color(0xFF718096))),
+    final alerts = [
+      {
+        'id': 1,
+        'type': 'warning',
+        'metric': 'Heart Rate',
+        'value': '105 BPM',
+        'message': 'Heart rate elevated above normal range',
+        'time': '2 min ago',
+      },
+      {
+        'id': 2,
+        'type': 'critical',
+        'metric': 'Blood Oxygen',
+        'value': '91%',
+        'message': 'Blood oxygen below safe threshold - Emergency contacts notified',
+        'time': '5 min ago',
+      },
+    ];
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Recent Health Alerts Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.warning, color: Color(0xFFd4b84a), size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'Recent Health Alerts',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (alerts.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Column(
+                        children: [
+                          Icon(Icons.check_circle,
+                              size: 48, color: Color(0xFFB4F8C8)),
+                          SizedBox(height: 12),
+                          Text('All vitals normal',
+                              style: TextStyle(color: Color(0xFF718096))),
+                          SizedBox(height: 4),
+                          Text('No alerts in the last 24 hours',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF718096))),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...alerts.map((alert) {
+                    final isCritical = alert['type'] == 'critical';
+                    final bgColor = isCritical
+                        ? const Color(0xFFFAA09A).withOpacity(0.2)
+                        : const Color(0xFFF4E87C).withOpacity(0.2);
+                    final borderColor = isCritical
+                        ? const Color(0xFFFAA09A)
+                        : const Color(0xFFF4E87C);
+                    final iconBgColor = isCritical
+                        ? const Color(0xFFFAA09A).withOpacity(0.4)
+                        : const Color(0xFFF4E87C).withOpacity(0.4);
+                    final iconColor = isCritical
+                        ? const Color(0xFFd97066)
+                        : const Color(0xFFd4b84a);
+
+                    IconData metricIcon;
+                    switch (alert['metric']) {
+                      case 'Heart Rate':
+                        metricIcon = Icons.favorite;
+                        break;
+                      case 'Blood Oxygen':
+                        metricIcon = Icons.water_drop;
+                        break;
+                      case 'Sleep':
+                        metricIcon = Icons.nightlight_round;
+                        break;
+                      default:
+                        metricIcon = Icons.show_chart;
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: borderColor, width: 2),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: iconBgColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(metricIcon, size: 20, color: iconColor),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      alert['metric'] as String,
+                                      style: const TextStyle(
+                                        color: Color(0xFF2D3748),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: borderColor,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        (alert['type'] as String).toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF2D3748),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  alert['value'] as String,
+                                  style: const TextStyle(
+                                    color: Color(0xFF2D3748),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  alert['message'] as String,
+                                  style: const TextStyle(color: Color(0xFF718096)),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.schedule,
+                                        size: 16, color: Color(0xFF9CA3AF)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      alert['time'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF9CA3AF),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Auto-SOS System Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF87CEEB).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF87CEEB), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.warning, color: Color(0xFF5ba3c7), size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'Auto-SOS System',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D3748),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'CareRing monitors your vitals 24/7. When critical values are detected, you have 30 seconds to respond before automatic SOS is triggered.',
+                  style: TextStyle(color: Color(0xFF2D3748)),
+                ),
+                const SizedBox(height: 16),
+                _buildThresholdCard(
+                  'Heart Rate Thresholds',
+                  ['Warning: <60 or >100 BPM', 'Critical: <40 or >120 BPM'],
+                ),
+                const SizedBox(height: 12),
+                _buildThresholdCard(
+                  'Blood Oxygen Thresholds',
+                  ['Warning: <94%', 'Critical: <90%'],
+                ),
+                const SizedBox(height: 12),
+                _buildThresholdCard(
+                  'Sleep Duration Thresholds',
+                  ['Warning: <6 hrs or >9 hrs', 'Critical: <4 hrs or >11 hrs'],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThresholdCard(String title, List<String> items) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF2D3748),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              item,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF718096),
+              ),
+            ),
+          )),
+        ],
+      ),
     );
   }
 }
@@ -1875,10 +2155,280 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> with 
   }
 
   Widget _buildSOSHistoryTab() {
-    return const Center(
-      child: Text(
-        'SOS History - Implementation pending',
-        style: TextStyle(fontSize: 16, color: Color(0xFF718096)),
+    final sosEvents = [
+      {
+        'id': 1,
+        'date': 'Today',
+        'time': '2:34 PM',
+        'trigger': 'automatic',
+        'reason': 'Blood oxygen dropped to 89%',
+        'status': 'resolved',
+        'contactsNotified': 4,
+        'location': '123 Main St, Boston MA',
+      },
+      {
+        'id': 2,
+        'date': 'Yesterday',
+        'time': '11:23 AM',
+        'trigger': 'automatic',
+        'reason': 'Heart rate exceeded 125 BPM',
+        'status': 'resolved',
+        'contactsNotified': 4,
+        'location': 'Home',
+      },
+    ];
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // SOS Alert History Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.warning, color: Color(0xFFd4b84a), size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'SOS Alert History',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (sosEvents.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Column(
+                        children: [
+                          Text('No SOS alerts',
+                              style: TextStyle(color: Color(0xFF718096))),
+                          SizedBox(height: 4),
+                          Text('Your emergency history will appear here',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF718096))),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...sosEvents.map((event) {
+                    final isAutomatic = event['trigger'] == 'automatic';
+                    final isResolved = event['status'] == 'resolved';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300, width: 2),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isAutomatic
+                                  ? const Color(0xFFF4E87C).withOpacity(0.4)
+                                  : const Color(0xFFFAA09A).withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.warning,
+                              size: 20,
+                              color: isAutomatic
+                                  ? const Color(0xFFd4b84a)
+                                  : const Color(0xFFd97066),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${event['date']} at ${event['time']}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF2D3748),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isAutomatic
+                                                  ? const Color(0xFFF4E87C)
+                                                  : const Color(0xFFFAA09A),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              isAutomatic ? 'AUTO' : 'MANUAL',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xFF2D3748),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: isResolved
+                                              ? const Color(0xFFB4F8C8)
+                                              : const Color(0xFFFAA09A),
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        event['status'] as String,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isResolved
+                                              ? const Color(0xFF6fbb8a)
+                                              : const Color(0xFFd97066),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  event['reason'] as String,
+                                  style: const TextStyle(color: Color(0xFF2D3748)),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.phone,
+                                        size: 16, color: Color(0xFF718096)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${event['contactsNotified']} contacts notified',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF718096),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on,
+                                        size: 16, color: Color(0xFF718096)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        event['location'] as String,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF718096),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Emergency Response Info Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF87CEEB).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF87CEEB), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Emergency Response Info',
+                  style: TextStyle(
+                    color: Color(0xFF2D3748),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildInfoItem('SOS alerts sent to all contacts via SMS, app notification, and phone call'),
+                _buildInfoItem('Your location is shared automatically'),
+                _buildInfoItem('Medical information shared with responders'),
+                _buildInfoItem('30-second cancel window for auto-triggered alerts'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(color: Color(0xFF718096))),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF718096),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
