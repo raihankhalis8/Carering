@@ -772,7 +772,7 @@ class _MedicationsState extends State<Medications> {
 }
 
 // Simplified Add Medication Screen
-class _AddMedicationScreen extends StatelessWidget {
+class _AddMedicationScreen extends StatefulWidget {
   final VoidCallback onBack;
   final Function(MedicationModel) onSave;
 
@@ -782,32 +782,133 @@ class _AddMedicationScreen extends StatelessWidget {
   });
 
   @override
+  State<_AddMedicationScreen> createState() => _AddMedicationScreenState();
+}
+
+class _AddMedicationScreenState extends State<_AddMedicationScreen> {
+  final TextEditingController nameCtrl = TextEditingController();
+  final TextEditingController dosageCtrl = TextEditingController();
+  final TextEditingController freqCtrl = TextEditingController();
+
+  TimeOfDay? selectedTime;
+
+  void _pickTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+
+    if (time != null) {
+      setState(() => selectedTime = time);
+    }
+  }
+
+  void _saveMedication() {
+    if (nameCtrl.text.isEmpty ||
+        dosageCtrl.text.isEmpty ||
+        freqCtrl.text.isEmpty ||
+        selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Please fill all fields")),
+      );
+      return;
+    }
+
+    final formattedTime =
+    selectedTime!.format(context); // ex: 10:00 AM
+
+    final newMed = MedicationModel(
+      id: Random().nextInt(10000),
+      name: nameCtrl.text,
+      dosage: dosageCtrl.text,
+      time: formattedTime,
+      scheduledTime: formattedTime,
+      frequency: freqCtrl.text,
+      taken: false,
+      color: Colors.blue, // default color
+    );
+
+    widget.onSave(newMed);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
+          onPressed: widget.onBack,
         ),
         title: const Text('Add Medication'),
       ),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            // Create sample medication
-            final newMed = MedicationModel(
-              id: Random().nextInt(10000),
-              name: 'New Medication',
-              dosage: '50 mg',
-              time: '10:00 AM',
-              scheduledTime: '10:00 AM',
-              frequency: 'Daily',
-              taken: false,
-              color: Colors.blue,
-            );
-            onSave(newMed);
-          },
-          child: const Text('Add Sample Medication'),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(
+                labelText: "Medication Name",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: dosageCtrl,
+              decoration: InputDecoration(
+                labelText: "Dosage",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: freqCtrl,
+              decoration: InputDecoration(
+                labelText: "Frequency (e.g. Daily)",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Time picker
+            InkWell(
+              onTap: _pickTime,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      selectedTime == null
+                          ? "Pick Time"
+                          : selectedTime!.format(context),
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    Icon(Icons.access_time),
+                  ],
+                ),
+              ),
+            ),
+
+            const Spacer(),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saveMedication,
+                child: Text(
+                  "Save",
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
