@@ -1370,8 +1370,7 @@ class _HealthMetricsScreenState extends State<HealthMetricsScreen> with SingleTi
                       padding: EdgeInsets.symmetric(vertical: 32),
                       child: Column(
                         children: [
-                          Icon(Icons.check_circle,
-                              size: 48, color: Color(0xFFB4F8C8)),
+                          Icon(Icons.show_chart, size: 48, color: Color(0xFFB4F8C8)),
                           SizedBox(height: 12),
                           Text('All vitals normal',
                               style: TextStyle(color: Color(0xFF718096))),
@@ -1388,15 +1387,15 @@ class _HealthMetricsScreenState extends State<HealthMetricsScreen> with SingleTi
                     final bgColor = isCritical
                         ? const Color(0xFFFAA09A).withOpacity(0.2)
                         : const Color(0xFFF4E87C).withOpacity(0.2);
-                    final borderColor = isCritical
-                        ? const Color(0xFFFAA09A)
-                        : const Color(0xFFF4E87C);
+                    final borderColor =
+                    isCritical ? const Color(0xFFFAA09A) : const Color(0xFFF4E87C);
                     final iconBgColor = isCritical
                         ? const Color(0xFFFAA09A).withOpacity(0.4)
                         : const Color(0xFFF4E87C).withOpacity(0.4);
-                    final iconColor = isCritical
-                        ? const Color(0xFFd97066)
-                        : const Color(0xFFd4b84a);
+                    final iconColor =
+                    isCritical ? const Color(0xFFd97066) : const Color(0xFFd4b84a);
+                    final badgeColor =
+                    isCritical ? const Color(0xFFFAA09A) : const Color(0xFFF4E87C);
 
                     IconData metricIcon;
                     switch (alert['metric']) {
@@ -1453,13 +1452,13 @@ class _HealthMetricsScreenState extends State<HealthMetricsScreen> with SingleTi
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: borderColor,
+                                        color: badgeColor,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
                                         (alert['type'] as String).toUpperCase(),
                                         style: const TextStyle(
-                                          fontSize: 10,
+                                          fontSize: 11,
                                           color: Color(0xFF2D3748),
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -1472,10 +1471,10 @@ class _HealthMetricsScreenState extends State<HealthMetricsScreen> with SingleTi
                                   alert['value'] as String,
                                   style: const TextStyle(
                                     color: Color(0xFF2D3748),
-                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 8),
                                 Text(
                                   alert['message'] as String,
                                   style: const TextStyle(color: Color(0xFF718096)),
@@ -1549,12 +1548,12 @@ class _HealthMetricsScreenState extends State<HealthMetricsScreen> with SingleTi
                   'Heart Rate Thresholds',
                   ['Warning: <60 or >100 BPM', 'Critical: <40 or >120 BPM'],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _buildThresholdCard(
                   'Blood Oxygen Thresholds',
                   ['Warning: <94%', 'Critical: <90%'],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _buildThresholdCard(
                   'Sleep Duration Thresholds',
                   ['Warning: <6 hrs or >9 hrs', 'Critical: <4 hrs or >11 hrs'],
@@ -1581,18 +1580,15 @@ class _HealthMetricsScreenState extends State<HealthMetricsScreen> with SingleTi
             title,
             style: const TextStyle(
               color: Color(0xFF2D3748),
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           ...items.map((item) => Padding(
-            padding: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               item,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF718096),
-              ),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF718096)),
             ),
           )),
         ],
@@ -2228,6 +2224,13 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> with 
                   ...sosEvents.map((event) {
                     final isAutomatic = event['trigger'] == 'automatic';
                     final isResolved = event['status'] == 'resolved';
+                    final iconBgColor = isAutomatic
+                        ? const Color(0xFFF4E87C).withOpacity(0.4)
+                        : const Color(0xFFFAA09A).withOpacity(0.4);
+                    final iconColor =
+                    isAutomatic ? const Color(0xFFd4b84a) : const Color(0xFFd97066);
+                    final triggerBadgeColor =
+                    isAutomatic ? const Color(0xFFF4E87C) : const Color(0xFFFAA09A);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -2243,18 +2246,10 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> with 
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isAutomatic
-                                  ? const Color(0xFFF4E87C).withOpacity(0.4)
-                                  : const Color(0xFFFAA09A).withOpacity(0.4),
+                              color: iconBgColor,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
-                              Icons.warning,
-                              size: 20,
-                              color: isAutomatic
-                                  ? const Color(0xFFd4b84a)
-                                  : const Color(0xFFd97066),
-                            ),
+                            child: Icon(Icons.warning, size: 20, color: iconColor),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -2282,15 +2277,13 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> with 
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: isAutomatic
-                                                  ? const Color(0xFFF4E87C)
-                                                  : const Color(0xFFFAA09A),
+                                              color: triggerBadgeColor,
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Text(
                                               isAutomatic ? 'AUTO' : 'MANUAL',
                                               style: const TextStyle(
-                                                fontSize: 10,
+                                                fontSize: 11,
                                                 color: Color(0xFF2D3748),
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -2305,17 +2298,17 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> with 
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
                                           color: isResolved
                                               ? const Color(0xFFB4F8C8)
                                               : const Color(0xFFFAA09A),
                                         ),
-                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
                                         event['status'] as String,
                                         style: TextStyle(
-                                          fontSize: 10,
+                                          fontSize: 11,
                                           color: isResolved
                                               ? const Color(0xFF6fbb8a)
                                               : const Color(0xFFd97066),
@@ -2325,40 +2318,45 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> with 
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 12),
                                 Text(
                                   event['reason'] as String,
                                   style: const TextStyle(color: Color(0xFF2D3748)),
                                 ),
                                 const SizedBox(height: 12),
-                                Row(
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.phone,
-                                        size: 16, color: Color(0xFF718096)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${event['contactsNotified']} contacts notified',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF718096),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.location_on,
-                                        size: 16, color: Color(0xFF718096)),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        event['location'] as String,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF718096),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.phone,
+                                            size: 16, color: Color(0xFF718096)),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${event['contactsNotified']} contacts notified',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF718096),
+                                          ),
                                         ),
-                                      ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.location_on,
+                                            size: 16, color: Color(0xFF718096)),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            event['location'] as String,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF718096),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -2396,36 +2394,30 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> with 
                   'Emergency Response Info',
                   style: TextStyle(
                     color: Color(0xFF2D3748),
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildInfoItem('SOS alerts sent to all contacts via SMS, app notification, and phone call'),
-                _buildInfoItem('Your location is shared automatically'),
-                _buildInfoItem('Medical information shared with responders'),
-                _buildInfoItem('30-second cancel window for auto-triggered alerts'),
+                const Text(
+                  '• SOS alerts sent to all contacts via SMS, app notification, and phone call',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF718096)),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '• Your location is shared automatically',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF718096)),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '• Medical information shared with responders',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF718096)),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '• 30-second cancel window for auto-triggered alerts',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF718096)),
+                ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('• ', style: TextStyle(color: Color(0xFF718096))),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF718096),
-              ),
             ),
           ),
         ],
