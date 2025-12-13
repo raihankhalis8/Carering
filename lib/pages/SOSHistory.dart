@@ -24,7 +24,7 @@ class SOSEvent {
 }
 
 class SOSHistory extends StatelessWidget {
-  const SOSHistory({Key? key}) : super(key: key);
+  const SOSHistory({super.key});
 
   List<SOSEvent> get sosEvents => [
     SOSEvent(
@@ -399,14 +399,14 @@ class SOSHistory extends StatelessWidget {
 
 // Alternative stateful version for dynamic data
 class SOSHistoryWithState extends StatefulWidget {
-  const SOSHistoryWithState({Key? key}) : super(key: key);
+  const SOSHistoryWithState({super.key});
 
   @override
   State<SOSHistoryWithState> createState() => _SOSHistoryWithStateState();
 }
 
 class _SOSHistoryWithStateState extends State<SOSHistoryWithState> {
-  List<SOSEvent> _sosEvents = [
+  final List<SOSEvent> _sosEvents = [
     SOSEvent(
       id: 1,
       date: 'Today',

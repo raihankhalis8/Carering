@@ -93,10 +93,10 @@ class HealthMonitor extends StatefulWidget {
   final VoidCallback onSOSTriggered;
 
   const HealthMonitor({
-    Key? key,
+    super.key,
     required this.healthData,
     required this.onSOSTriggered,
-  }) : super(key: key);
+  });
 
   @override
   State<HealthMonitor> createState() => _HealthMonitorState();

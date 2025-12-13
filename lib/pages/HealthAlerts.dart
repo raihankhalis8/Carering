@@ -20,7 +20,7 @@ class HealthAlert {
 }
 
 class HealthAlerts extends StatelessWidget {
-  const HealthAlerts({Key? key}) : super(key: key);
+  const HealthAlerts({super.key});
 
   // Mock data
   List<HealthAlert> get alerts => [
@@ -400,14 +400,14 @@ class HealthAlerts extends StatelessWidget {
 
 // Alternative version with stateful alerts that can be added/removed
 class HealthAlertsWithState extends StatefulWidget {
-  const HealthAlertsWithState({Key? key}) : super(key: key);
+  const HealthAlertsWithState({super.key});
 
   @override
   State<HealthAlertsWithState> createState() => _HealthAlertsWithStateState();
 }
 
 class _HealthAlertsWithStateState extends State<HealthAlertsWithState> {
-  List<HealthAlert> _alerts = [
+  final List<HealthAlert> _alerts = [
     HealthAlert(
       id: 1,
       type: 'warning',

@@ -17,10 +17,10 @@ class AddEmergencyContact extends StatefulWidget {
   final Function(EmergencyContact) onSave;
 
   const AddEmergencyContact({
-    Key? key,
+    super.key,
     required this.onBack,
     required this.onSave,
-  }) : super(key: key);
+  });
 
   @override
   State<AddEmergencyContact> createState() => _AddEmergencyContactState();

@@ -38,12 +38,12 @@ class SOSAlertSystem extends StatefulWidget {
   final String? reason;
 
   const SOSAlertSystem({
-    Key? key,
+    super.key,
     required this.isActive,
     required this.onCancel,
     required this.trigger,
     this.reason,
-  }) : super(key: key);
+  });
 
   @override
   State<SOSAlertSystem> createState() => _SOSAlertSystemState();

@@ -80,10 +80,10 @@ class MedicationMonitor extends StatefulWidget {
   final Function(Medication) onOverdueAlert;
 
   const MedicationMonitor({
-    Key? key,
+    super.key,
     required this.medications,
     required this.onOverdueAlert,
-  }) : super(key: key);
+  });
 
   @override
   State<MedicationMonitor> createState() => _MedicationMonitorState();
@@ -344,10 +344,10 @@ class MedicationStatusBadge extends StatelessWidget {
   final bool taken;
 
   const MedicationStatusBadge({
-    Key? key,
+    super.key,
     required this.scheduledTime,
     required this.taken,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -389,10 +389,10 @@ class MedicationCard extends StatelessWidget {
   final VoidCallback onMarkTaken;
 
   const MedicationCard({
-    Key? key,
+    super.key,
     required this.medication,
     required this.onMarkTaken,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

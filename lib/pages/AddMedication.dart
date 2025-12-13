@@ -30,10 +30,10 @@ class AddMedication extends StatefulWidget {
   final Function(Medication) onSave;
 
   const AddMedication({
-    Key? key,
+    super.key,
     required this.onBack,
     required this.onSave,
-  }) : super(key: key);
+  });
 
   @override
   State<AddMedication> createState() => _AddMedicationState();

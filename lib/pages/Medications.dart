@@ -81,7 +81,7 @@ MedicationStatus getMedicationStatus(String scheduledTime, bool taken) {
 }
 
 class Medications extends StatefulWidget {
-  const Medications({Key? key}) : super(key: key);
+  const Medications({super.key});
 
   @override
   State<Medications> createState() => _MedicationsState();
@@ -92,7 +92,7 @@ class _MedicationsState extends State<Medications> {
   int? _editingColorMedId;
   final Set<int> _overdueAlerts = {};
 
-  List<MedicationModel> _medications = [
+  final List<MedicationModel> _medications = [
     MedicationModel(
       id: 1,
       name: 'Aspirin',

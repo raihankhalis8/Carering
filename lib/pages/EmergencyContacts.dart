@@ -19,7 +19,7 @@ class EmergencyContactModel {
 }
 
 class EmergencyContacts extends StatefulWidget {
-  const EmergencyContacts({Key? key}) : super(key: key);
+  const EmergencyContacts({super.key});
 
   @override
   State<EmergencyContacts> createState() => _EmergencyContactsState();
@@ -30,7 +30,7 @@ class _EmergencyContactsState extends State<EmergencyContacts>
   late TabController _tabController;
   bool _showAddContact = false;
 
-  List<EmergencyContactModel> _contacts = [
+  final List<EmergencyContactModel> _contacts = [
     EmergencyContactModel(
       name: 'Sarah Johnson',
       relationship: 'Daughter',

@@ -24,7 +24,7 @@ class SleepData {
 }
 
 class HealthMetrics extends StatefulWidget {
-  const HealthMetrics({Key? key}) : super(key: key);
+  const HealthMetrics({super.key});
 
   @override
   State<HealthMetrics> createState() => _HealthMetricsState();

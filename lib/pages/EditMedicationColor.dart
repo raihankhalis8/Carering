@@ -19,12 +19,12 @@ class EditMedicationColor extends StatefulWidget {
   final Function(int medicationId, String newColor) onSave;
 
   const EditMedicationColor({
-    Key? key,
+    super.key,
     required this.medicationId,
     required this.medicationName,
     required this.currentColor,
     required this.onSave,
-  }) : super(key: key);
+  });
 
   @override
   State<EditMedicationColor> createState() => _EditMedicationColorState();

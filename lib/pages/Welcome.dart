@@ -4,9 +4,9 @@ class WelcomeScreen extends StatelessWidget {
   final VoidCallback onGetStarted;
 
   const WelcomeScreen({
-    Key? key,
+    super.key,
     required this.onGetStarted,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -305,10 +305,10 @@ class AnimatedWelcomeButton extends StatefulWidget {
   final String text;
 
   const AnimatedWelcomeButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.text,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedWelcomeButton> createState() => _AnimatedWelcomeButtonState();
