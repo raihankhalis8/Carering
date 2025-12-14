@@ -15,7 +15,10 @@ Future<List<List<int>>> sendRawCommand(
   try {
     await client.connect();
     return await client.sendRawCommand(command, subdata, replies);
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error sending raw command: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }

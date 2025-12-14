@@ -7,7 +7,10 @@ Future<void> setRingTime(String deviceId, {DateTime? time}) async {
     await client.connect();
     await client.setTime(time ?? DateTime.now().toUtc());
     print('Time set successfully');
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error setting time: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }

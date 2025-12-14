@@ -18,8 +18,11 @@ Future<List<int>?> getRealTimeReading(
     }
 
     return readings;
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }
 

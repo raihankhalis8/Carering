@@ -87,6 +87,7 @@ class ColmiClient {
     }
   }
 
+  //TODO usage nya delete dlu, soalnya race condition jadinya disconnected
   Future<void> disconnect() async {
     for (var controller in _controllers.values) {
       await controller.close();
@@ -118,10 +119,24 @@ class ColmiClient {
   }
 
   Future<Map<String, String>> getDeviceInfo() async {
-    final services = await _device!.discoverServices();
+    print("Start Device Info");
+    // final services = await _device!.discoverServices();
+    // final services = _device!.servicesList;
+    final services = await _device!.discoverServices(timeout: 30);
+    print("services");
+    print(services);
+    for (var service in services) {
+      print("service");
+      print(service.uuid);
+      print(service.uuid.toString());
+      print(service);
+    }
     final deviceInfoService = services.firstWhere(
           (s) => s.uuid.toString().toUpperCase() == ColmiUuids.deviceInfoUuid.toUpperCase(),
     );
+
+    print("deviceInfoService");
+    print(deviceInfoService);
 
     final hwChar = deviceInfoService.characteristics.firstWhere(
           (c) => c.uuid.toString().toUpperCase() == ColmiUuids.deviceHwUuid.toUpperCase(),

@@ -7,8 +7,11 @@ Future<HeartRateLogSettings> getHeartRateSettings(String deviceId) async {
   try {
     await client.connect();
     return await client.getHeartRateLogSettings();
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error getting heart rate settings: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }
 
@@ -32,7 +35,10 @@ Future<HeartRateLogSettings> setHeartRateSettings(
 
     print('Settings updated: $newSettings');
     return newSettings;
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error setting heart rate settings: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }

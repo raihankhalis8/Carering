@@ -41,8 +41,11 @@ Future<void> syncToDatabase(
       await client.setTime(DateTime.now().toUtc());
 
       print('Sync completed successfully');
-    } finally {
-      await client.disconnect();
+    } catch (e) {
+      print('Error during sync: $e');
+      rethrow;
+    // } finally {
+    //   await client.disconnect();
     }
   } finally {
     await db.close();

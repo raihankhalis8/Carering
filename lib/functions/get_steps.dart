@@ -16,8 +16,11 @@ Future<List<Map<String, dynamic>>?> getSteps(
     }
 
     return sportDetails.map((detail) => detail.toJson()).toList();
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }
 

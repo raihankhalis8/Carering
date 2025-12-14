@@ -78,19 +78,19 @@ class _DeviceInfoScreenState extends State<DeviceInfoScreen> {
           : ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildInfoCard(
-            'Device Information',
-            [
-              _buildInfoRow(
-                'Hardware Version',
-                _info!['device_info']['hw_version'],
-              ),
-              _buildInfoRow(
-                'Firmware Version',
-                _info!['device_info']['fw_version'],
-              ),
-            ],
-          ),
+          // _buildInfoCard(
+          //   'Device Information',
+          //   [
+          //     _buildInfoRow(
+          //       'Hardware Version',
+          //       _info!['device_info']['hw_version'],
+          //     ),
+          //     _buildInfoRow(
+          //       'Firmware Version',
+          //       _info!['device_info']['fw_version'],
+          //     ),
+          //   ],
+          // ),
           const SizedBox(height: 16),
           _buildInfoCard(
             'Battery',

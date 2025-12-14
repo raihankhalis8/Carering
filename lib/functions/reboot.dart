@@ -8,7 +8,10 @@ Future<void> rebootRing(String deviceId) async {
     await client.connect();
     await client.reboot();
     print('Ring rebooted');
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }

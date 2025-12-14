@@ -26,7 +26,10 @@ Future<List<Map<String, dynamic>>?> getHeartRateLog(
           '${r.timestamp.minute.toString().padLeft(2, '0')}',
     })
         .toList();
-  } finally {
-    await client.disconnect();
+  } catch (e) {
+    print('Error: $e');
+    rethrow;
+  // } finally {
+  //   await client.disconnect();
   }
 }
