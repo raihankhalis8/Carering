@@ -1,22 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 import 'dart:math';
-
-// Models
-class EmergencyContactModel {
-  final String name;
-  final String relationship;
-  final String phone;
-  final String initials;
-  final Color color;
-
-  EmergencyContactModel({
-    required this.name,
-    required this.relationship,
-    required this.phone,
-    required this.initials,
-    required this.color,
-  });
-}
 
 class EmergencyContacts extends StatefulWidget {
   const EmergencyContacts({super.key});
@@ -30,37 +15,6 @@ class _EmergencyContactsState extends State<EmergencyContacts>
   late TabController _tabController;
   bool _showAddContact = false;
 
-  final List<EmergencyContactModel> _contacts = [
-    EmergencyContactModel(
-      name: 'Sarah Johnson',
-      relationship: 'Daughter',
-      phone: '(555) 123-4567',
-      initials: 'SJ',
-      color: Colors.pink,
-    ),
-    EmergencyContactModel(
-      name: 'Dr. Michael Chen',
-      relationship: 'Primary Care',
-      phone: '(555) 987-6543',
-      initials: 'MC',
-      color: Colors.blue,
-    ),
-    EmergencyContactModel(
-      name: 'Robert Williams',
-      relationship: 'Son',
-      phone: '(555) 246-8135',
-      initials: 'RW',
-      color: Colors.green,
-    ),
-    EmergencyContactModel(
-      name: 'Emergency Services',
-      relationship: '911',
-      phone: '911',
-      initials: '911',
-      color: Colors.red[700]!,
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -73,134 +27,22 @@ class _EmergencyContactsState extends State<EmergencyContacts>
     super.dispose();
   }
 
-  void _handleAddContact(String name, String relationship, String phone) {
-    final initials = name
-        .split(' ')
-        .map((n) => n.isNotEmpty ? n[0] : '')
-        .join('')
-        .toUpperCase();
-
-    final colors = [
-      Colors.pink,
-      Colors.blue,
-      Colors.green,
-      Colors.purple,
-      Colors.orange,
-    ];
-
-    final newContact = EmergencyContactModel(
-      name: name,
-      relationship: relationship,
-      phone: phone,
-      initials: initials,
-      color: colors[Random().nextInt(colors.length)],
-    );
-
-    setState(() {
-      _contacts.add(newContact);
-      _showAddContact = false;
-    });
-  }
-
-  void _handleCall(String contactName, String phone) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.phone, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Calling $contactName...',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Dialing $phone',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _handleWhatsAppCall(String contactName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.chat, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Opening WhatsApp...',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Connecting to $contactName',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _handleShareLocation(String contactName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.location_on, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Opening WhatsApp...',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Sharing location with $contactName',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_showAddContact) {
       return _AddEmergencyContact(
         onBack: () => setState(() => _showAddContact = false),
-        onSave: _handleAddContact,
+        onSave: (contact) {
+          final appState = Provider.of<AppState>(context, listen: false);
+          appState.addContact(contact);
+          setState(() => _showAddContact = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Emergency contact added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
       );
     }
 
@@ -240,6 +82,9 @@ class _EmergencyContactsState extends State<EmergencyContacts>
   }
 
   Widget _buildContactsTab() {
+    final appState = Provider.of<AppState>(context);
+    final contacts = appState.contacts;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -278,162 +123,218 @@ class _EmergencyContactsState extends State<EmergencyContacts>
           const SizedBox(height: 16),
 
           // Contact Cards
-          ..._contacts.map((contact) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Card(
+          if (contacts.isEmpty)
+            Card(
               elevation: 8,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(32.0),
                 child: Column(
                   children: [
-                    // Contact Info
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 32,
-                          backgroundColor: contact.color,
-                          child: Text(
-                            contact.initials,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                contact.name,
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                contact.relationship,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                contact.phone,
-                                style: TextStyle(
-                                  color: Colors.grey[700],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    Icon(
+                      Icons.person_add,
+                      size: 64,
+                      color: Colors.grey[400],
                     ),
                     const SizedBox(height: 16),
-
-                    // Action Buttons
-                    Column(
-                      children: [
-                        // Call Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                _handleCall(contact.name, contact.phone),
-                            icon: const Icon(Icons.phone, size: 24),
-                            label: const Text(
-                              'Call',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFB4F8C8),
-                              foregroundColor: Colors.grey[800],
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // WhatsApp Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _handleWhatsAppCall(contact.name),
-                            icon: const Icon(Icons.chat, size: 24),
-                            label: const Text(
-                              'WhatsApp',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.black87,
-                              side: const BorderSide(
-                                color: Color(0xFF87CEEB),
-                                width: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Share Location Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _handleShareLocation(contact.name),
-                            icon: const Icon(Icons.location_on, size: 24),
-                            label: const Text(
-                              'Share Location',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.black87,
-                              side: const BorderSide(
-                                color: Color(0xFF87CEEB),
-                                width: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'No emergency contacts yet',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add your first contact below',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-          )),
+            )
+          else
+            ...contacts.map((contact) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Card(
+                elevation: 8,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      // Contact Info
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 32,
+                            backgroundColor: contact.color,
+                            child: Text(
+                              contact.initials,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  contact.name,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  contact.relationship,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  contact.phone,
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete Contact?'),
+                                  content: Text(
+                                    'Are you sure you want to delete ${contact.name}?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        appState.deleteContact(contact.id);
+                                        Navigator.pop(context);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Contact deleted'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      },
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Action Buttons
+                      Column(
+                        children: [
+                          // Call Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Calling ${contact.name}...'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.phone, size: 24),
+                              label: const Text(
+                                'Call',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFB4F8C8),
+                                foregroundColor: Colors.grey[800],
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // WhatsApp Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Opening WhatsApp for ${contact.name}...'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.chat, size: 24),
+                              label: const Text(
+                                'WhatsApp',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.black87,
+                                side: const BorderSide(
+                                  color: Color(0xFF87CEEB),
+                                  width: 2,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )),
 
           // Add Contact Button
           Card(
@@ -443,7 +344,6 @@ class _EmergencyContactsState extends State<EmergencyContacts>
               side: BorderSide(
                 color: Colors.grey[300]!,
                 width: 2,
-                style: BorderStyle.solid,
               ),
             ),
             child: Padding(
@@ -481,37 +381,252 @@ class _EmergencyContactsState extends State<EmergencyContacts>
   }
 
   Widget _buildHistoryTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.history,
-              size: 64,
-              color: Colors.grey[400],
+    final appState = Provider.of<AppState>(context);
+    final sosEvents = appState.sosHistory;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No SOS History',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.warning,
+                        color: const Color(0xFFd4b84a),
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'SOS Alert History',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Events List or Empty State
+                  if (sosEvents.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.history,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No SOS alerts',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Your emergency history will appear here',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ...sosEvents.map((event) => Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Icon
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: event.trigger == 'automatic'
+                                  ? const Color(0xFFF4E87C).withOpacity(0.4)
+                                  : const Color(0xFFFAA09A).withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.warning,
+                              color: event.trigger == 'automatic'
+                                  ? const Color(0xFFd4b84a)
+                                  : const Color(0xFFd97066),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Event Details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Date/Time and Status
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${event.date} at ${event.time}',
+                                            style: const TextStyle(
+                                              color: Colors.black87,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: event.trigger == 'automatic'
+                                                  ? const Color(0xFFF4E87C)
+                                                  : const Color(0xFFFAA09A),
+                                              borderRadius:
+                                              BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              event.trigger == 'automatic'
+                                                  ? 'AUTO'
+                                                  : 'MANUAL',
+                                              style: TextStyle(
+                                                color: Colors.grey[800],
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: event.status == 'resolved'
+                                              ? const Color(0xFFB4F8C8)
+                                              : const Color(0xFFFAA09A),
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        event.status,
+                                        style: TextStyle(
+                                          color: event.status == 'resolved'
+                                              ? const Color(0xFF6fbb8a)
+                                              : const Color(0xFFd97066),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Reason
+                                Text(
+                                  event.reason,
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Details
+                                Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.phone,
+                                          size: 16,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${event.contactsNotified} contacts notified',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.location_on,
+                                          size: 16,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            event.location,
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Your emergency alerts will appear here',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -520,7 +635,7 @@ class _EmergencyContactsState extends State<EmergencyContacts>
 // Add Emergency Contact Widget
 class _AddEmergencyContact extends StatefulWidget {
   final VoidCallback onBack;
-  final Function(String name, String relationship, String phone) onSave;
+  final Function(EmergencyContactModel) onSave;
 
   const _AddEmergencyContact({
     required this.onBack,
@@ -547,19 +662,31 @@ class _AddEmergencyContactState extends State<_AddEmergencyContact> {
 
   void _handleSubmit() {
     if (_formKey.currentState!.validate()) {
-      widget.onSave(
-        _nameController.text,
-        _relationshipController.text,
-        _phoneController.text,
+      final initials = _nameController.text
+          .split(' ')
+          .map((n) => n.isNotEmpty ? n[0] : '')
+          .join('')
+          .toUpperCase();
+
+      final colors = [
+        Colors.pink,
+        Colors.blue,
+        Colors.green,
+        Colors.purple,
+        Colors.orange,
+        Colors.teal,
+      ];
+
+      final contact = EmergencyContactModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text,
+        relationship: _relationshipController.text,
+        phone: _phoneController.text,
+        initials: initials,
+        color: colors[Random().nextInt(colors.length)],
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Emergency contact added successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      widget.onSave(contact);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -575,238 +702,87 @@ class _AddEmergencyContactState extends State<_AddEmergencyContact> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onBack,
+        ),
+        title: const Text('Add Emergency Contact'),
+        backgroundColor: const Color(0xFF87CEEB),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Back Button
-              TextButton.icon(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back, size: 24),
-                label: const Text(
-                  'Back to Contacts',
-                  style: TextStyle(fontSize: 16),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name *',
+                  hintText: 'Enter contact name',
+                  border: OutlineInputBorder(),
                 ),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey[700],
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a name';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
-
-              // Main Card
-              Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(
-                    color: Color(0xFF87CEEB),
-                    width: 2,
-                  ),
+              TextFormField(
+                controller: _relationshipController,
+                decoration: const InputDecoration(
+                  labelText: 'Relationship *',
+                  hintText: 'e.g., Daughter, Son, Doctor',
+                  border: OutlineInputBorder(),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.person_add,
-                            color: const Color(0xFF87CEEB),
-                            size: 28,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Add Emergency Contact',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Form
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Name Field
-                            Text(
-                              'Name',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _nameController,
-                              decoration: InputDecoration(
-                                hintText: 'Enter contact name',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(width: 2),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey[300]!,
-                                    width: 2,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF87CEEB),
-                                    width: 2,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a name';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Relationship Field
-                            Text(
-                              'Relationship',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _relationshipController,
-                              decoration: InputDecoration(
-                                hintText: 'e.g., Daughter, Son, Doctor',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(width: 2),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey[300]!,
-                                    width: 2,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF87CEEB),
-                                    width: 2,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a relationship';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Phone Field
-                            Text(
-                              'Phone Number',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: InputDecoration(
-                                hintText: '(555) 123-4567',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(width: 2),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey[300]!,
-                                    width: 2,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF87CEEB),
-                                    width: 2,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a phone number';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Submit Button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 56,
-                              child: ElevatedButton.icon(
-                                onPressed: _handleSubmit,
-                                icon: const Icon(Icons.person_add, size: 24),
-                                label: const Text(
-                                  'Save Contact',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFB4F8C8),
-                                  foregroundColor: Colors.grey[800],
-                                  elevation: 2,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a relationship';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number *',
+                  hintText: '(555) 123-4567',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a phone number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: _handleSubmit,
+                  icon: const Icon(Icons.person_add, size: 24),
+                  label: const Text(
+                    'Save Contact',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB4F8C8),
+                    foregroundColor: Colors.grey[800],
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -817,4 +793,3 @@ class _AddEmergencyContactState extends State<_AddEmergencyContact> {
     );
   }
 }
-

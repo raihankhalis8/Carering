@@ -1,150 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:async';
-
-// Import health monitoring
-import '../main.dart';
-import 'HealthMonitor.dart';
-import 'MedicationMonitor.dart';
+import '../providers/app_state.dart';
 import 'SOSAlertSystem.dart';
-
-// Models
-class HealthData {
-  final int heartRate;
-  final int steps;
-  final int stepsGoal;
-  final double sleep;
-  final int bloodOxygen;
-  final int battery;
-  final bool ringConnected;
-
-  HealthData({
-    required this.heartRate,
-    required this.steps,
-    required this.stepsGoal,
-    required this.sleep,
-    required this.bloodOxygen,
-    required this.battery,
-    required this.ringConnected,
-  });
-
-  HealthData copyWith({
-    int? heartRate,
-    int? steps,
-    int? stepsGoal,
-    double? sleep,
-    int? bloodOxygen,
-    int? battery,
-    bool? ringConnected,
-  }) {
-    return HealthData(
-      heartRate: heartRate ?? this.heartRate,
-      steps: steps ?? this.steps,
-      stepsGoal: stepsGoal ?? this.stepsGoal,
-      sleep: sleep ?? this.sleep,
-      bloodOxygen: bloodOxygen ?? this.bloodOxygen,
-      battery: battery ?? this.battery,
-      ringConnected: ringConnected ?? this.ringConnected,
-    );
-  }
-}
-
-class HealthStatus {
-  final String status;
-  final Color color;
-  final Color bgColor;
-
-  HealthStatus({
-    required this.status,
-    required this.color,
-    required this.bgColor,
-  });
-}
-
-class UpcomingMedication {
-  final int id;
-  final String name;
-  final String dosage;
-  final String time;
-
-  UpcomingMedication({
-    required this.id,
-    required this.name,
-    required this.dosage,
-    required this.time,
-  });
-}
-
-class Medication {
-  final int id;
-  final String name;
-  final String dosage;
-  final String scheduledTime;
-  final bool taken;
-
-  Medication({
-    required this.id,
-    required this.name,
-    required this.dosage,
-    required this.scheduledTime,
-    required this.taken,
-  });
-}
-
-HealthStatus getHealthStatus(String type, num value) {
-  if (type == 'heartRate') {
-    final hr = value as int;
-    if (hr < 50 || hr > 120) {
-      return HealthStatus(
-        status: 'critical',
-        color: const Color(0xFFd97066),
-        bgColor: const Color(0xFFFAA09A).withOpacity(0.4),
-      );
-    } else if (hr < 60 || hr > 100) {
-      return HealthStatus(
-        status: 'warning',
-        color: const Color(0xFFd4b84a),
-        bgColor: const Color(0xFFF4E87C).withOpacity(0.4),
-      );
-    }
-  } else if (type == 'bloodOxygen') {
-    final oxygen = value as int;
-    if (oxygen < 90) {
-      return HealthStatus(
-        status: 'critical',
-        color: const Color(0xFFd97066),
-        bgColor: const Color(0xFFFAA09A).withOpacity(0.4),
-      );
-    } else if (oxygen < 95) {
-      return HealthStatus(
-        status: 'warning',
-        color: const Color(0xFFd4b84a),
-        bgColor: const Color(0xFFF4E87C).withOpacity(0.4),
-      );
-    }
-  } else if (type == 'sleep') {
-    final sleep = value as double;
-    if (sleep < 5) {
-      return HealthStatus(
-        status: 'critical',
-        color: const Color(0xFFd97066),
-        bgColor: const Color(0xFFFAA09A).withOpacity(0.4),
-      );
-    } else if (sleep < 6.5) {
-      return HealthStatus(
-        status: 'warning',
-        color: const Color(0xFFd4b84a),
-        bgColor: const Color(0xFFF4E87C).withOpacity(0.4),
-      );
-    }
-  }
-
-  return HealthStatus(
-    status: 'normal',
-    color: const Color(0xFF6fbb8a),
-    bgColor: const Color(0xFFB4F8C8).withOpacity(0.4),
-  );
-}
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -154,105 +11,9 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  late HealthData _healthData;
   bool _sosActive = false;
   String _sosTrigger = 'manual';
   String _sosReason = '';
-  Timer? _healthUpdateTimer;
-
-  final List<UpcomingMedication> _upcomingMeds = [
-    UpcomingMedication(
-      id: 1,
-      name: 'Vitamin D',
-      dosage: '1000 IU',
-      time: '09:00 AM',
-    ),
-    UpcomingMedication(
-      id: 2,
-      name: 'Blood Pressure Med',
-      dosage: '10 mg',
-      time: '02:00 PM',
-    ),
-  ];
-
-  final List<Medication> _medications = [
-    Medication(
-      id: 1,
-      name: 'Vitamin D',
-      dosage: '1000 IU',
-      scheduledTime: '09:00 AM',
-      taken: false,
-    ),
-    Medication(
-      id: 2,
-      name: 'Blood Pressure Med',
-      dosage: '10 mg',
-      scheduledTime: '02:00 PM',
-      taken: false,
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _healthData = HealthData(
-      heartRate: 72,
-      steps: 4234,
-      stepsGoal: 6000,
-      sleep: 7.5,
-      bloodOxygen: 98,
-      battery: 65,
-      ringConnected: false,
-    );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateHealthDataFromProvider();
-    });
-
-    // Update every 5 seconds for frequent refresh
-    _healthUpdateTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
-      _updateHealthDataFromProvider();
-    });
-  }
-
-  void _updateHealthDataFromProvider() {
-    print('_updateHealthDataFromProvider start');
-    try {
-      final deviceState = Provider.of<DeviceState>(context, listen: false);
-      print('_updateHealthDataFromProvider deviceState: $deviceState');
-      print('_updateHealthDataFromProvider deviceState healthData: ${deviceState.healthData}');
-      if (deviceState.healthData != null) {
-        setState(() {
-          _healthData = deviceState.healthData!;
-        });
-      } else {
-        // Simulate data if no real device connected
-        setState(() {
-          _healthData = _healthData.copyWith(
-            heartRate: (_healthData.heartRate + (DateTime.now().millisecond % 7 - 3)).clamp(60, 100),
-            bloodOxygen: (_healthData.bloodOxygen + (DateTime.now().millisecond % 3 - 1)).clamp(90, 100),
-            steps: _healthData.steps + (DateTime.now().millisecond % 20),
-          );
-        });
-      }
-    } catch (e) {
-      print('_updateHealthDataFromProvider exception: $e');
-      // Provider not available, continue with simulated data
-      setState(() {
-        _healthData = _healthData.copyWith(
-          heartRate: (_healthData.heartRate + (DateTime.now().millisecond % 7 - 3)).clamp(60, 100),
-          bloodOxygen: (_healthData.bloodOxygen + (DateTime.now().millisecond % 3 - 1)).clamp(90, 100),
-          steps: _healthData.steps + (DateTime.now().millisecond % 20),
-        );
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _healthUpdateTimer?.cancel();
-    super.dispose();
-  }
 
   void _handleManualSOS() {
     setState(() {
@@ -260,6 +21,20 @@ class _DashboardState extends State<Dashboard> {
       _sosReason = 'Manual emergency activation';
       _sosActive = true;
     });
+
+    // Save to history
+    final appState = Provider.of<AppState>(context, listen: false);
+    final now = DateTime.now();
+    appState.addSOSEvent(SOSEventModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      date: 'Today',
+      time: '${now.hour}:${now.minute.toString().padLeft(2, '0')}',
+      trigger: 'manual',
+      reason: 'Manual emergency activation from dashboard',
+      status: 'active',
+      contactsNotified: appState.contacts.length,
+      location: 'Current Location',
+    ));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -296,55 +71,106 @@ class _DashboardState extends State<Dashboard> {
       _sosActive = false;
       _sosReason = '';
     });
+
+    // Update last SOS event to resolved
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (appState.sosHistory.isNotEmpty) {
+      final lastEvent = appState.sosHistory.first;
+      final updatedEvent = SOSEventModel(
+        id: lastEvent.id,
+        date: lastEvent.date,
+        time: lastEvent.time,
+        trigger: lastEvent.trigger,
+        reason: lastEvent.reason,
+        status: 'resolved',
+        contactsNotified: lastEvent.contactsNotified,
+        location: lastEvent.location,
+      );
+      appState.sosHistory[0] = updatedEvent;
+      appState.notifyListeners();
+    }
   }
 
-  void _handleSOSTriggered() {
-    setState(() {
-      _sosTrigger = 'automatic';
-      _sosReason = 'Critical health values detected';
-      _sosActive = true;
-    });
-  }
+  HealthStatus _getHealthStatus(String type, num value) {
+    if (type == 'heartRate') {
+      final hr = value as int;
+      if (hr < 50 || hr > 120) {
+        return HealthStatus(
+          status: 'critical',
+          color: const Color(0xFFd97066),
+          bgColor: const Color(0xFFFAA09A).withOpacity(0.4),
+        );
+      } else if (hr < 60 || hr > 100) {
+        return HealthStatus(
+          status: 'warning',
+          color: const Color(0xFFd4b84a),
+          bgColor: const Color(0xFFF4E87C).withOpacity(0.4),
+        );
+      }
+    } else if (type == 'bloodOxygen') {
+      final oxygen = value as int;
+      if (oxygen < 90) {
+        return HealthStatus(
+          status: 'critical',
+          color: const Color(0xFFd97066),
+          bgColor: const Color(0xFFFAA09A).withOpacity(0.4),
+        );
+      } else if (oxygen < 95) {
+        return HealthStatus(
+          status: 'warning',
+          color: const Color(0xFFd4b84a),
+          bgColor: const Color(0xFFF4E87C).withOpacity(0.4),
+        );
+      }
+    } else if (type == 'bloodSugar') {
+      final sugar = value as int;
+      if (sugar < 70 || sugar > 140) {
+        return HealthStatus(
+          status: 'critical',
+          color: const Color(0xFFd97066),
+          bgColor: const Color(0xFFFAA09A).withOpacity(0.4),
+        );
+      } else if (sugar < 80 || sugar > 125) {
+        return HealthStatus(
+          status: 'warning',
+          color: const Color(0xFFd4b84a),
+          bgColor: const Color(0xFFF4E87C).withOpacity(0.4),
+        );
+      }
+    }
 
-  void _handleMedicationOverdue(Medication med) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Medication reminder: ${med.name} is overdue!'),
-        backgroundColor: const Color(0xFFd97066),
-        duration: const Duration(seconds: 5),
-      ),
-    );
-  }
-
-  void _handleMarkTaken(int medId) {
-    setState(() {
-      _upcomingMeds.removeWhere((med) => med.id == medId);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Medication marked as taken!'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
+    return HealthStatus(
+      status: 'normal',
+      color: const Color(0xFF6fbb8a),
+      bgColor: const Color(0xFFB4F8C8).withOpacity(0.4),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final heartRateStatus = getHealthStatus('heartRate', _healthData.heartRate);
-    final bloodOxygenStatus = getHealthStatus('bloodOxygen', _healthData.bloodOxygen);
-    final sleepStatus = getHealthStatus('sleep', _healthData.sleep);
+    final appState = Provider.of<AppState>(context);
+    final healthData = appState.healthData;
+
+    if (healthData == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final heartRateStatus = _getHealthStatus('heartRate', healthData.heartRate);
+    final bloodOxygenStatus = _getHealthStatus('bloodOxygen', healthData.bloodOxygen);
+    final bloodSugarStatus = _getHealthStatus('bloodSugar', healthData.bloodSugar);
+
+    // Get upcoming medications
+    final upcomingMeds = appState.medications
+        .where((m) => !m.taken)
+        .take(3)
+        .toList();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
           RefreshIndicator(
-            onRefresh: () async {
-              _updateHealthDataFromProvider();
-              await Future.delayed(const Duration(seconds: 1));
-            },
+            onRefresh: () => appState.refreshData(),
             child: SafeArea(
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -353,7 +179,7 @@ class _DashboardState extends State<Dashboard> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Connection Status Banner
-                    if (!_healthData.ringConnected)
+                    if (!healthData.ringConnected)
                       Container(
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(12),
@@ -388,43 +214,6 @@ class _DashboardState extends State<Dashboard> {
                         ),
                       ),
 
-                    // SOS Status Alert
-                    if (_sosActive)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFAA09A).withOpacity(0.2),
-                          border: Border.all(
-                            color: const Color(0xFFFAA09A),
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.warning,
-                              color: const Color(0xFFd97066),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                '🚨 SOS ACTIVE',
-                                style: TextStyle(
-                                  color: Color(0xFFd97066),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
                     // Ring Status Card
                     Card(
                       elevation: 8,
@@ -439,24 +228,21 @@ class _DashboardState extends State<Dashboard> {
                         padding: const EdgeInsets.all(12.0),
                         child: Row(
                           children: [
-                            Flexible(
-                              flex: 0,
-                              child: Container(
-                                width: 60,
-                                height: 60,
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Color(0xFF87CEEB), Color(0xFFC8A8E9)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  shape: BoxShape.circle,
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF87CEEB), Color(0xFFC8A8E9)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                                child: const Icon(
-                                  Icons.favorite,
-                                  color: Colors.black87,
-                                  size: 30,
-                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.favorite,
+                                color: Colors.black87,
+                                size: 30,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -481,13 +267,13 @@ class _DashboardState extends State<Dashboard> {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _healthData.ringConnected
+                                      color: healthData.ringConnected
                                           ? const Color(0xFFB4F8C8)
                                           : const Color(0xFFF4E87C),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      _healthData.ringConnected
+                                      healthData.ringConnected
                                           ? 'Connected'
                                           : 'Simulated',
                                       style: const TextStyle(
@@ -511,7 +297,7 @@ class _DashboardState extends State<Dashboard> {
                                       const SizedBox(width: 4),
                                       Flexible(
                                         child: Text(
-                                          '${_healthData.battery}%',
+                                          '${healthData.battery}%',
                                           style: TextStyle(
                                             color: Colors.grey[700],
                                             fontSize: 12,
@@ -544,30 +330,30 @@ class _DashboardState extends State<Dashboard> {
                               child: _buildHealthCard(
                                 icon: Icons.favorite,
                                 label: 'Heart Rate',
-                                value: '${_healthData.heartRate} BPM',
+                                value: '${healthData.heartRate} BPM',
                                 status: heartRateStatus,
                               ),
                             ),
                             SizedBox(
                               width: cardWidth,
-                              child: _buildStepsCard(),
-                            ),
-                            SizedBox(
-                              width: cardWidth,
-                              child: _buildHealthCard(
-                                icon: Icons.bedtime,
-                                label: 'Sleep',
-                                value: '${_healthData.sleep} hrs',
-                                status: sleepStatus,
-                              ),
+                              child: _buildStepsCard(healthData),
                             ),
                             SizedBox(
                               width: cardWidth,
                               child: _buildHealthCard(
                                 icon: Icons.water_drop,
                                 label: 'Blood O₂',
-                                value: '${_healthData.bloodOxygen}%',
+                                value: '${healthData.bloodOxygen}%',
                                 status: bloodOxygenStatus,
+                              ),
+                            ),
+                            SizedBox(
+                              width: cardWidth,
+                              child: _buildHealthCard(
+                                icon: Icons.bloodtype,
+                                label: 'Blood Sugar',
+                                value: '${healthData.bloodSugar} mg/dL',
+                                status: bloodSugarStatus,
                               ),
                             ),
                           ],
@@ -613,28 +399,21 @@ class _DashboardState extends State<Dashboard> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            if (_upcomingMeds.isEmpty)
+                            if (upcomingMeds.isEmpty)
                               Center(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 16),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        'No upcoming medications',
-                                        style: TextStyle(
-                                          color: Colors.grey[500],
-                                          fontSize: 14,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
+                                  child: Text(
+                                    'No upcoming medications',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
                               )
                             else
-                              ..._upcomingMeds.map((med) => Container(
+                              ...upcomingMeds.map((med) => Container(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -669,23 +448,20 @@ class _DashboardState extends State<Dashboard> {
                                       width: double.infinity,
                                       height: 40,
                                       child: ElevatedButton(
-                                        onPressed: () => _handleMarkTaken(med.id),
+                                        onPressed: () => appState.toggleMedicationTaken(med.id),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFFF4E87C),
+                                          backgroundColor: const Color(0xFFB4F8C8),
                                           foregroundColor: Colors.grey[800],
                                           elevation: 2,
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                         ),
-                                        child: const FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            'Mark Taken',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                        child: const Text(
+                                          'Mark Taken',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
@@ -753,14 +529,11 @@ class _DashboardState extends State<Dashboard> {
                               child: ElevatedButton.icon(
                                 onPressed: _handleManualSOS,
                                 icon: const Icon(Icons.phone, size: 24),
-                                label: const FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'SOS Emergency',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                label: const Text(
+                                  'SOS Emergency',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 style: ElevatedButton.styleFrom(
@@ -777,29 +550,11 @@ class _DashboardState extends State<Dashboard> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
           ),
-
-          // // Health Monitor
-          // HealthMonitor(
-          //   healthData: HealthData(
-          //     heartRate: _healthData.heartRate,
-          //     bloodOxygen: _healthData.bloodOxygen,
-          //     steps: _healthData.steps,
-          //     sleep: _healthData.sleep,
-          //   ),
-          //   onSOSTriggered: _handleSOSTriggered,
-          // ),
-          //
-          // // Medication Monitor
-          // MedicationMonitor(
-          //   medications: _medications,
-          //   onOverdueAlert: _handleMedicationOverdue,
-          // ),
 
           // SOS Alert System
           if (_sosActive)
@@ -882,7 +637,7 @@ class _DashboardState extends State<Dashboard> {
                 value,
                 style: TextStyle(
                   color: status.color,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
                 maxLines: 1,
@@ -894,9 +649,9 @@ class _DashboardState extends State<Dashboard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (status.status == 'critical')
-                  Icon(Icons.warning, size: 14, color: status.color)
+                  Icon(Icons.warning, size: 12, color: status.color)
                 else if (status.status == 'warning')
-                  Icon(Icons.info_outline, size: 14, color: status.color),
+                  Icon(Icons.info_outline, size: 12, color: status.color),
                 if (status.status != 'normal') const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -904,12 +659,10 @@ class _DashboardState extends State<Dashboard> {
                         ? 'Critical'
                         : status.status == 'warning'
                         ? 'Warning'
-                        : label == 'Sleep'
-                        ? 'Good'
                         : 'Normal',
                     style: TextStyle(
                       color: status.color,
-                      fontSize: 11,
+                      fontSize: 10,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -923,8 +676,8 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildStepsCard() {
-    final progress = (_healthData.steps / _healthData.stepsGoal).clamp(0.0, 1.0);
+  Widget _buildStepsCard(HealthData healthData) {
+    final progress = (healthData.steps / healthData.stepsGoal).clamp(0.0, 1.0);
 
     return Card(
       elevation: 8,
@@ -963,10 +716,10 @@ class _DashboardState extends State<Dashboard> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                _healthData.steps.toString(),
+                healthData.steps.toString(),
                 style: TextStyle(
                   color: Colors.grey[700],
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
                 maxLines: 1,
@@ -991,7 +744,14 @@ class _DashboardState extends State<Dashboard> {
   }
 }
 
-// // DeviceState class for Provider (define in main.dart)
-// class DeviceState {
-//   HealthData? healthData;
-// }
+class HealthStatus {
+  final String status;
+  final Color color;
+  final Color bgColor;
+
+  HealthStatus({
+    required this.status,
+    required this.color,
+    required this.bgColor,
+  });
+}

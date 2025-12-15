@@ -1,84 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 import 'dart:math';
-
-// Models
-class MedicationModel {
-  final int id;
-  final String name;
-  final String dosage;
-  final String time;
-  final String scheduledTime;
-  final String frequency;
-  final bool taken;
-  final Color color;
-
-  MedicationModel({
-    required this.id,
-    required this.name,
-    required this.dosage,
-    required this.time,
-    required this.scheduledTime,
-    required this.frequency,
-    required this.taken,
-    required this.color,
-  });
-
-  MedicationModel copyWith({
-    int? id,
-    String? name,
-    String? dosage,
-    String? time,
-    String? scheduledTime,
-    String? frequency,
-    bool? taken,
-    Color? color,
-  }) {
-    return MedicationModel(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      dosage: dosage ?? this.dosage,
-      time: time ?? this.time,
-      scheduledTime: scheduledTime ?? this.scheduledTime,
-      frequency: frequency ?? this.frequency,
-      taken: taken ?? this.taken,
-      color: color ?? this.color,
-    );
-  }
-}
-
-// Medication Status (from previous conversion)
-class MedicationStatus {
-  final String status;
-  final Color color;
-  final Color bgColor;
-  final String message;
-
-  MedicationStatus({
-    required this.status,
-    required this.color,
-    required this.bgColor,
-    required this.message,
-  });
-}
-
-// Helper function (simplified version)
-MedicationStatus getMedicationStatus(String scheduledTime, bool taken) {
-  if (taken) {
-    return MedicationStatus(
-      status: 'taken',
-      color: const Color(0xFF6fbb8a),
-      bgColor: const Color(0xFFB4F8C8).withOpacity(0.4),
-      message: 'Taken',
-    );
-  }
-  // Simplified - in real app, parse time and compare
-  return MedicationStatus(
-    status: 'upcoming',
-    color: Colors.grey[600]!,
-    bgColor: Colors.grey[100]!,
-    message: 'Upcoming',
-  );
-}
 
 class Medications extends StatefulWidget {
   const Medications({super.key});
@@ -89,94 +12,31 @@ class Medications extends StatefulWidget {
 
 class _MedicationsState extends State<Medications> {
   bool _showAddMedication = false;
-  int? _editingColorMedId;
-  final Set<int> _overdueAlerts = {};
-
-  final List<MedicationModel> _medications = [
-    MedicationModel(
-      id: 1,
-      name: 'Aspirin',
-      dosage: '100 mg',
-      time: '08:00 AM',
-      scheduledTime: '8:00 AM',
-      frequency: 'Daily',
-      taken: false,
-      color: const Color(0xFF3b82f6),
-    ),
-    MedicationModel(
-      id: 2,
-      name: 'Vitamin D',
-      dosage: '1000 IU',
-      time: '12:00 PM',
-      scheduledTime: '12:00 PM',
-      frequency: 'Daily',
-      taken: true,
-      color: const Color(0xFF22c55e),
-    ),
-    MedicationModel(
-      id: 3,
-      name: 'Blood Pressure Med',
-      dosage: '10 mg',
-      time: '06:00 PM',
-      scheduledTime: '6:00 PM',
-      frequency: 'Twice daily',
-      taken: false,
-      color: const Color(0xFFa855f7),
-    ),
-  ];
-
-  void _handleOverdueAlert(int medicationId) {
-    setState(() {
-      _overdueAlerts.add(medicationId);
-    });
-  }
-
-  void _toggleMedication(int id) {
-    setState(() {
-      final index = _medications.indexWhere((med) => med.id == id);
-      if (index != -1) {
-        _medications[index] = _medications[index].copyWith(
-          taken: !_medications[index].taken,
-        );
-        _overdueAlerts.remove(id);
-      }
-    });
-  }
-
-  void _handleAddMedication(MedicationModel medication) {
-    setState(() {
-      _medications.add(medication);
-      _showAddMedication = false;
-    });
-  }
-
-  void _updateMedicationColor(int medId, Color newColor) {
-    setState(() {
-      final index = _medications.indexWhere((med) => med.id == medId);
-      if (index != -1) {
-        _medications[index] = _medications[index].copyWith(color: newColor);
-      }
-      _editingColorMedId = null;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
+    final medications = appState.medications;
+    final reminderSettings = appState.reminderSettings;
+
     if (_showAddMedication) {
       return _AddMedicationScreen(
         onBack: () => setState(() => _showAddMedication = false),
-        onSave: _handleAddMedication,
+        onSave: (medication) {
+          appState.addMedication(medication);
+          setState(() => _showAddMedication = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Medication added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
       );
     }
 
-    final takenToday = _medications.where((med) => med.taken).length;
-    final totalMeds = _medications.length;
-    final overdueMeds = _medications.where((med) {
-      if (med.taken) return false;
-      final status = getMedicationStatus(med.scheduledTime, med.taken);
-      return status.status == 'overdue';
-    }).toList();
-
+    final takenToday = medications.where((med) => med.taken).length;
+    final totalMeds = medications.length;
     final progressPercent = totalMeds > 0 ? (takenToday / totalMeds * 100).round() : 0;
 
     return Scaffold(
@@ -186,41 +46,6 @@ class _MedicationsState extends State<Medications> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Overdue Alert
-              if (overdueMeds.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFAA09A).withOpacity(0.2),
-                    border: Border.all(
-                      color: const Color(0xFFFAA09A),
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning,
-                        color: const Color(0xFFd97066),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '⚠️ ${overdueMeds.length} medication${overdueMeds.length > 1 ? 's' : ''} overdue by more than 30 minutes!',
-                          style: TextStyle(
-                            color: const Color(0xFFd97066),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
               // Summary Card
               Card(
                 elevation: 8,
@@ -343,295 +168,277 @@ class _MedicationsState extends State<Medications> {
               const SizedBox(height: 16),
 
               // Medications List
-              Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.medication,
-                            color: const Color(0xFFC8A8E9),
-                            size: 24,
+              if (medications.isEmpty)
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.medication,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No medications yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
                           ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Today's Schedule",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Add your first medication below',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.medication,
+                              color: const Color(0xFFC8A8E9),
+                              size: 24,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ..._medications.map((med) {
-                        final medStatus = getMedicationStatus(
-                          med.scheduledTime,
-                          med.taken,
-                        );
-                        final isOverdue = medStatus.status == 'overdue';
-                        final isDue = medStatus.status == 'due';
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: med.taken ? Colors.grey[50] : Colors.white,
-                            border: Border.all(
-                              color: med.taken
-                                  ? Colors.grey[200]!
-                                  : isOverdue
-                                  ? const Color(0xFFFAA09A)
-                                  : isDue
-                                  ? const Color(0xFFF4E87C)
-                                  : Colors.grey[200]!,
-                              width: 2,
+                            const SizedBox(width: 8),
+                            const Text(
+                              "Today's Schedule",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Color Circle
-                              Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        _editingColorMedId = med.id;
-                                      });
-                                    },
-                                    child: Container(
-                                      width: 56,
-                                      height: 56,
-                                      decoration: BoxDecoration(
-                                        color: med.color,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.medication,
-                                        color: Colors.white,
-                                        size: 28,
-                                      ),
-                                    ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        ...medications.map((med) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: med.taken ? Colors.grey[50] : Colors.white,
+                              border: Border.all(
+                                color: med.taken
+                                    ? Colors.grey[200]!
+                                    : Colors.grey[200]!,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Color Circle
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: med.color,
+                                    shape: BoxShape.circle,
                                   ),
-                                  if (isOverdue && !med.taken)
-                                    Positioned(
-                                      top: -4,
-                                      right: -4,
-                                      child: Container(
-                                        width: 20,
-                                        height: 20,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFFFAA09A),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(width: 12),
-
-                              // Medication Details
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            med.name,
-                                            style: TextStyle(
-                                              color: Colors.black87,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              decoration: med.taken
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
-                                            ),
-                                          ),
-                                        ),
-                                        if (med.taken)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFB4F8C8),
-                                              borderRadius:
-                                              BorderRadius.circular(12),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.check_circle,
-                                                  size: 14,
-                                                  color: Colors.grey[800],
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Taken',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[800],
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        if (!med.taken && isOverdue)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFFAA09A),
-                                              borderRadius:
-                                              BorderRadius.circular(12),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.warning,
-                                                  size: 14,
-                                                  color: Colors.grey[800],
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Overdue',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[800],
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        if (!med.taken && isDue)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF4E87C),
-                                              borderRadius:
-                                              BorderRadius.circular(12),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.access_time,
-                                                  size: 14,
-                                                  color: Colors.grey[800],
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Due Now',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[800],
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      med.dosage,
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.access_time,
-                                          size: 16,
-                                          color: Colors.grey[600],
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          med.time,
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      med.frequency,
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton(
-                                        onPressed: () =>
-                                            _toggleMedication(med.id),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: med.taken
-                                              ? Colors.white
-                                              : const Color(0xFFB4F8C8),
-                                          foregroundColor: Colors.grey[800],
-                                          side: med.taken
-                                              ? BorderSide(
-                                              color: Colors.grey[300]!)
-                                              : null,
-                                          elevation: med.taken ? 0 : 2,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 12),
-                                        ),
-                                        child: Text(
-                                          med.taken
-                                              ? 'Mark Not Taken'
-                                              : 'Mark Taken',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  child: const Icon(
+                                    Icons.medication,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
+                                const SizedBox(width: 12),
+
+                                // Medication Details
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              med.name,
+                                              style: TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                decoration: med.taken
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                              ),
+                                            ),
+                                          ),
+                                          if (med.taken)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFB4F8C8),
+                                                borderRadius:
+                                                BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Icons.check_circle,
+                                                    size: 14,
+                                                    color: Colors.grey[800],
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'Taken',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[800],
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        med.dosage,
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            size: 16,
+                                            color: Colors.grey[600],
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            med.time,
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        med.frequency,
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: ElevatedButton(
+                                              onPressed: () =>
+                                                  appState.toggleMedicationTaken(med.id),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: med.taken
+                                                    ? Colors.white
+                                                    : const Color(0xFFB4F8C8),
+                                                foregroundColor: Colors.grey[800],
+                                                side: med.taken
+                                                    ? BorderSide(
+                                                    color: Colors.grey[300]!)
+                                                    : null,
+                                                elevation: med.taken ? 0 : 2,
+                                                padding: const EdgeInsets.symmetric(
+                                                    vertical: 12),
+                                              ),
+                                              child: Text(
+                                                med.taken
+                                                    ? 'Mark Not Taken'
+                                                    : 'Mark Taken',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete, color: Colors.red),
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  title: const Text('Delete Medication?'),
+                                                  content: Text(
+                                                    'Are you sure you want to delete ${med.name}?',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(context),
+                                                      child: const Text('Cancel'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        appState.deleteMedication(med.id);
+                                                        Navigator.pop(context);
+                                                        ScaffoldMessenger.of(context)
+                                                            .showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                                'Medication deleted'),
+                                                            backgroundColor: Colors.red,
+                                                          ),
+                                                        );
+                                                      },
+                                                      style: TextButton.styleFrom(
+                                                        foregroundColor: Colors.red,
+                                                      ),
+                                                      child: const Text('Delete'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               const SizedBox(height: 16),
 
               // Add Medication Button
@@ -707,12 +514,27 @@ class _MedicationsState extends State<Medications> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _buildReminderItem('Ring Vibration', 'On', true),
-                      const SizedBox(height: 8),
-                      _buildReminderItem('Phone Alert', 'On', true),
+                      _buildReminderItem(
+                        context,
+                        'Ring Vibration',
+                        reminderSettings['ringVibration'] ?? true,
+                            (value) {
+                          final updated = Map<String, dynamic>.from(reminderSettings);
+                          updated['ringVibration'] = value;
+                          appState.updateReminderSettings(updated);
+                        },
+                      ),
                       const SizedBox(height: 8),
                       _buildReminderItem(
-                          'Reminder Time', '15 min before', false),
+                        context,
+                        'Phone Alert',
+                        reminderSettings['phoneAlert'] ?? true,
+                            (value) {
+                          final updated = Map<String, dynamic>.from(reminderSettings);
+                          updated['phoneAlert'] = value;
+                          appState.updateReminderSettings(updated);
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -724,7 +546,12 @@ class _MedicationsState extends State<Medications> {
     );
   }
 
-  Widget _buildReminderItem(String title, String value, bool isBadge) {
+  Widget _buildReminderItem(
+      BuildContext context,
+      String title,
+      bool value,
+      Function(bool) onChanged,
+      ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -741,37 +568,18 @@ class _MedicationsState extends State<Medications> {
               fontSize: 14,
             ),
           ),
-          if (isBadge)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFB4F8C8),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                value,
-                style: TextStyle(
-                  color: Colors.grey[800],
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          else
-            Text(
-              value,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF6fbb8a),
+          ),
         ],
       ),
     );
   }
 }
 
-// Simplified Add Medication Screen
+// Add Medication Screen
 class _AddMedicationScreen extends StatefulWidget {
   final VoidCallback onBack;
   final Function(MedicationModel) onSave;
@@ -788,9 +596,18 @@ class _AddMedicationScreen extends StatefulWidget {
 class _AddMedicationScreenState extends State<_AddMedicationScreen> {
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController dosageCtrl = TextEditingController();
-  final TextEditingController freqCtrl = TextEditingController();
-
+  String _frequency = 'Daily';
   TimeOfDay? selectedTime;
+  Color _selectedColor = const Color(0xFF3b82f6);
+
+  final List<Color> _colorOptions = [
+    const Color(0xFF3b82f6), // Blue
+    const Color(0xFF22c55e), // Green
+    const Color(0xFFa855f7), // Purple
+    const Color(0xFFeab308), // Yellow
+    const Color(0xFFef4444), // Red
+    const Color(0xFFec4899), // Pink
+  ];
 
   void _pickTime() async {
     final time = await showTimePicker(
@@ -806,26 +623,24 @@ class _AddMedicationScreenState extends State<_AddMedicationScreen> {
   void _saveMedication() {
     if (nameCtrl.text.isEmpty ||
         dosageCtrl.text.isEmpty ||
-        freqCtrl.text.isEmpty ||
         selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please fill all fields")),
+        const SnackBar(content: Text("Please fill all fields")),
       );
       return;
     }
 
-    final formattedTime =
-    selectedTime!.format(context); // ex: 10:00 AM
+    final formattedTime = selectedTime!.format(context);
 
     final newMed = MedicationModel(
-      id: Random().nextInt(10000),
+      id: DateTime.now().millisecondsSinceEpoch,
       name: nameCtrl.text,
       dosage: dosageCtrl.text,
       time: formattedTime,
       scheduledTime: formattedTime,
-      frequency: freqCtrl.text,
+      frequency: _frequency,
       taken: false,
-      color: Colors.blue, // default color
+      color: _selectedColor,
     );
 
     widget.onSave(newMed);
@@ -834,49 +649,53 @@ class _AddMedicationScreenState extends State<_AddMedicationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBack,
         ),
         title: const Text('Add Medication'),
+        backgroundColor: const Color(0xFF87CEEB),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: InputDecoration(
-                labelText: "Medication Name",
+              decoration: const InputDecoration(
+                labelText: "Medication Name *",
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-
+            const SizedBox(height: 16),
             TextField(
               controller: dosageCtrl,
-              decoration: InputDecoration(
-                labelText: "Dosage",
+              decoration: const InputDecoration(
+                labelText: "Dosage *",
+                hintText: "e.g., 100 mg",
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: freqCtrl,
-              decoration: InputDecoration(
-                labelText: "Frequency (e.g. Daily)",
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _frequency,
+              decoration: const InputDecoration(
+                labelText: "Frequency",
                 border: OutlineInputBorder(),
               ),
+              items: ['Daily', 'Twice daily', 'Three times daily', 'As needed']
+                  .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                  .toList(),
+              onChanged: (value) => setState(() => _frequency = value!),
             ),
-            const SizedBox(height: 12),
-
-            // Time picker
+            const SizedBox(height: 16),
             InkWell(
               onTap: _pickTime,
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey),
                   borderRadius: BorderRadius.circular(8),
@@ -886,25 +705,53 @@ class _AddMedicationScreenState extends State<_AddMedicationScreen> {
                   children: [
                     Text(
                       selectedTime == null
-                          ? "Pick Time"
+                          ? "Pick Time *"
                           : selectedTime!.format(context),
-                      style: TextStyle(fontSize: 16),
                     ),
-                    Icon(Icons.access_time),
+                    const Icon(Icons.access_time),
                   ],
                 ),
               ),
             ),
-
-            const Spacer(),
-
+            const SizedBox(height: 16),
+            const Text("Pill Color:", style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              children: _colorOptions.map((color) {
+                final isSelected = _selectedColor == color;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedColor = color),
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? Colors.black : Colors.grey[300]!,
+                        width: isSelected ? 3 : 1,
+                      ),
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.white)
+                        : null,
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _saveMedication,
-                child: Text(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFFB4F8C8),
+                ),
+                child: const Text(
                   "Save",
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: 16, color: Colors.black87),
                 ),
               ),
             ),
@@ -914,4 +761,3 @@ class _AddMedicationScreenState extends State<_AddMedicationScreen> {
     );
   }
 }
-
