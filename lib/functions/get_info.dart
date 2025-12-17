@@ -4,9 +4,7 @@ Future<Map<String, dynamic>> getDeviceInfo(String deviceId) async {
   final client = ColmiClient(deviceId);
 
   try {
-    print("Try to Connect");
     await client.connect();
-    print("Connected");
     // final deviceInfo = await client.getDeviceInfo();
     // print("Device Info Success");
     // print(deviceInfo);

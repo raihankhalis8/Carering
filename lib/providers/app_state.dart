@@ -87,7 +87,8 @@ class AppState extends ChangeNotifier {
 
   void _startHealthUpdates() {
     _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    //TODO REFRESH TIMER
+    _updateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _fetchHealthData();
     });
     _fetchHealthData();
@@ -100,19 +101,20 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      int heartRate = 72;
-      int bloodOxygen = 98;
-      int bloodSugar = 95; // Normal fasting blood sugar
-      int steps = 0;
-      int battery = 65;
+      int heartRate = 100;
+      int bloodOxygen = 100;
+      int bloodSugar = 100;
+      int steps = 100;
+      int battery = 100;
 
       try {
         final hrReadings = await getRealTimeReading(
           _deviceId!,
           RealTimeReadingType.heartRate,
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 60));
         if (hrReadings != null && hrReadings.isNotEmpty) {
           heartRate = (hrReadings.reduce((a, b) => a + b) / hrReadings.length).round();
+          print('Heart rate fetch succeed: $heartRate');
         }
       } catch (e) {
         print('Heart rate fetch failed: $e');
@@ -122,9 +124,10 @@ class AppState extends ChangeNotifier {
         final spo2Readings = await getRealTimeReading(
           _deviceId!,
           RealTimeReadingType.spo2,
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 60));
         if (spo2Readings != null && spo2Readings.isNotEmpty) {
           bloodOxygen = (spo2Readings.reduce((a, b) => a + b) / spo2Readings.length).round();
+          print('SpO2 fetch succeed: $bloodOxygen');
         }
       } catch (e) {
         print('SpO2 fetch failed: $e');
@@ -134,18 +137,23 @@ class AppState extends ChangeNotifier {
         final sugarReadings = await getRealTimeReading(
           _deviceId!,
           RealTimeReadingType.bloodSugar,
-        ).timeout(const Duration(seconds: 15));
+        ).timeout(const Duration(seconds: 60));
         if (sugarReadings != null && sugarReadings.isNotEmpty) {
           bloodSugar = (sugarReadings.reduce((a, b) => a + b) / sugarReadings.length).round();
+          print('Blood sugar fetch succeed: $bloodSugar');
         }
       } catch (e) {
         print('Blood sugar fetch failed: $e');
       }
 
       try {
-        final stepsData = await getSteps(_deviceId!, DateTime.now()).timeout(const Duration(seconds: 15));
+        final stepsData = await getSteps(
+          _deviceId!,
+          DateTime.now(),
+        ).timeout(const Duration(seconds: 60));
         if (stepsData != null && stepsData.isNotEmpty) {
           steps = stepsData.fold<int>(0, (sum, item) => sum + (item['steps'] as int));
+          print('Steps fetch succeed: $steps');
         }
       } catch (e) {
         print('Steps fetch failed: $e');
@@ -154,6 +162,7 @@ class AppState extends ChangeNotifier {
       try {
         final deviceInfo = await getDeviceInfo(_deviceId!);
         battery = deviceInfo['battery']['level'] as int;
+        print('Battery fetch succeed: $battery');
       } catch (e) {
         print('Battery fetch failed: $e');
       }
