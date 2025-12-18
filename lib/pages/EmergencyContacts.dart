@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
+import '../services/communication_service.dart';
 import 'dart:math';
 
 class EmergencyContacts extends StatefulWidget {
@@ -267,13 +268,23 @@ class _EmergencyContactsState extends State<EmergencyContacts>
                             width: double.infinity,
                             height: 48,
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Calling ${contact.name}...'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
+                              onPressed: () async {
+                                final success = await CommunicationService.makePhoneCall(contact.phone);
+                                if (!success && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Unable to make call. Please check permissions.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                } else if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Calling ${contact.name}...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
                               },
                               icon: const Icon(Icons.phone, size: 24),
                               label: const Text(
@@ -300,13 +311,26 @@ class _EmergencyContactsState extends State<EmergencyContacts>
                             width: double.infinity,
                             height: 48,
                             child: OutlinedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Opening WhatsApp for ${contact.name}...'),
-                                    backgroundColor: Colors.green,
-                                  ),
+                              onPressed: () async {
+                                final success = await CommunicationService.openWhatsApp(
+                                  contact.phone,
+                                  message: '🚨 Emergency! Please check on me.',
                                 );
+                                if (!success && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('WhatsApp not available'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                } else if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Opening WhatsApp for ${contact.name}...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
                               },
                               icon: const Icon(Icons.chat, size: 24),
                               label: const Text(

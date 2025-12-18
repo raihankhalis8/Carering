@@ -1,3 +1,6 @@
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
+import '../services/communication_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
@@ -82,6 +85,26 @@ class _SOSAlertSystemState extends State<SOSAlertSystem> {
       timer.cancel();
     }
     super.dispose();
+  }
+
+  Future<void> _handleEmergencyCall() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    final contacts = appState.contacts.map((c) => {
+      'name': c.name,
+      'phone': c.phone,
+    }).toList();
+
+    if (contacts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No emergency contacts available'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    await CommunicationService.emergencyCallAll(context, contacts);
   }
 
   void _initializeAlert() {

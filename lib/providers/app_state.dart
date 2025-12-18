@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../colmi_client.dart';
 import '../functions/get_realtime.dart';
@@ -25,10 +26,11 @@ class AppState extends ChangeNotifier {
   // SOS History
   List<SOSEventModel> _sosHistory = [];
 
+  List<HealthAlertModel> _healthAlerts = [];
+
   // Reminder Settings
   Map<String, dynamic> _reminderSettings = {};
 
-  // Getters
   String? get deviceId => _deviceId;
   bool get isConnected => _isConnected;
   HealthData? get healthData => _healthData;
@@ -37,11 +39,14 @@ class AppState extends ChangeNotifier {
   List<MedicationModel> get medications => _medications;
   List<EmergencyContactModel> get contacts => _contacts;
   List<SOSEventModel> get sosHistory => _sosHistory;
+  List<HealthAlertModel> get healthAlerts => _healthAlerts;
   Map<String, dynamic> get reminderSettings => _reminderSettings;
 
   // Initialize app state
   Future<void> initialize() async {
     await _loadPersistedData();
+    await NotificationService.initialize();
+
     if (_deviceId != null) {
       _isConnected = true;
       _startHealthUpdates();
@@ -64,11 +69,13 @@ class AppState extends ChangeNotifier {
     final sosList = StorageService.getSOSHistory();
     _sosHistory = sosList.map((s) => SOSEventModel.fromJson(s)).toList();
 
+    final alertList = StorageService.getHealthAlerts();
+    _healthAlerts = alertList.map((a) => HealthAlertModel.fromJson(a)).toList();
+
     // Load reminder settings
     _reminderSettings = StorageService.getReminderSettings();
   }
 
-  // Device Methods
   void setDevice(String deviceId) {
     _deviceId = deviceId;
     _isConnected = true;
@@ -177,6 +184,7 @@ class AppState extends ChangeNotifier {
         ringConnected: true,
       );
 
+      await _checkHealthAlerts(_healthData!);
       _lastUpdate = DateTime.now();
     } catch (e) {
       print('Error fetching health data: $e');
@@ -184,6 +192,123 @@ class AppState extends ChangeNotifier {
       _isUpdating = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _checkHealthAlerts(HealthData data) async {
+    final now = DateTime.now();
+
+    if (data.heartRate < 50 || data.heartRate > 120) {
+      await _addHealthAlert(
+        metric: 'Heart Rate',
+        value: '${data.heartRate} BPM',
+        message: 'Heart rate is critical (Normal: 60-100 BPM)',
+        isCritical: true,
+        timestamp: now,
+      );
+
+      await NotificationService.showHealthAlert(
+        metric: 'Heart Rate',
+        value: '${data.heartRate} BPM',
+        message: 'Critical level detected',
+        isCritical: true,
+      );
+    } else if (data.heartRate < 60 || data.heartRate > 100) {
+      await _addHealthAlert(
+        metric: 'Heart Rate',
+        value: '${data.heartRate} BPM',
+        message: 'Heart rate is elevated',
+        isCritical: false,
+        timestamp: now,
+      );
+
+      await NotificationService.showHealthAlert(
+        metric: 'Heart Rate',
+        value: '${data.heartRate} BPM',
+        message: 'Elevated level detected',
+        isCritical: false,
+      );
+    }
+
+    if (data.bloodOxygen < 90) {
+      await _addHealthAlert(
+        metric: 'Blood Oxygen',
+        value: '${data.bloodOxygen}%',
+        message: 'Blood oxygen critically low (Normal: 95-100%)',
+        isCritical: true,
+        timestamp: now,
+      );
+
+      await NotificationService.showHealthAlert(
+        metric: 'Blood Oxygen',
+        value: '${data.bloodOxygen}%',
+        message: 'Critically low level',
+        isCritical: true,
+      );
+    } else if (data.bloodOxygen < 95) {
+      await _addHealthAlert(
+        metric: 'Blood Oxygen',
+        value: '${data.bloodOxygen}%',
+        message: 'Blood oxygen is low',
+        isCritical: false,
+        timestamp: now,
+      );
+
+      await NotificationService.showHealthAlert(
+        metric: 'Blood Oxygen',
+        value: '${data.bloodOxygen}%',
+        message: 'Low level detected',
+        isCritical: false,
+      );
+    }
+
+    if (data.bloodSugar < 70 || data.bloodSugar > 140) {
+      await _addHealthAlert(
+        metric: 'Blood Sugar',
+        value: '${data.bloodSugar} mg/dL',
+        message: 'Blood sugar is critical (Normal: 70-100 mg/dL)',
+        isCritical: true,
+        timestamp: now,
+      );
+
+      await NotificationService.showHealthAlert(
+        metric: 'Blood Sugar',
+        value: '${data.bloodSugar} mg/dL',
+        message: 'Critical level detected',
+        isCritical: true,
+      );
+    }
+  }
+
+  Future<void> _addHealthAlert({
+    required String metric,
+    required String value,
+    required String message,
+    required bool isCritical,
+    required DateTime timestamp,
+  }) async {
+    final recentAlerts = _healthAlerts.where((alert) =>
+    alert.metric == metric &&
+        timestamp.difference(alert.timestamp).inMinutes < 5
+    );
+
+    if (recentAlerts.isNotEmpty) return;
+
+    final alert = HealthAlertModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      metric: metric,
+      value: value,
+      message: message,
+      isCritical: isCritical,
+      timestamp: timestamp,
+    );
+
+    _healthAlerts.insert(0, alert);
+    if (_healthAlerts.length > 50) {
+      _healthAlerts = _healthAlerts.sublist(0, 50);
+    }
+
+    await _saveHealthAlerts();
+    notifyListeners();
   }
 
   Future<void> refreshData() async {
@@ -194,6 +319,15 @@ class AppState extends ChangeNotifier {
   Future<void> addMedication(MedicationModel medication) async {
     _medications.add(medication);
     await _saveMedications();
+
+    if (_reminderSettings['phoneAlert'] == true) {
+      await NotificationService.showMedicationReminder(
+        medicationName: medication.name,
+        dosage: medication.dosage,
+        time: medication.time,
+      );
+    }
+
     notifyListeners();
   }
 
@@ -213,6 +347,11 @@ class AppState extends ChangeNotifier {
         taken: !_medications[index].taken,
       );
       await _saveMedications();
+
+      if (_medications[index].taken) {
+        await NotificationService.cancelNotification(id);
+      }
+
       notifyListeners();
     }
   }
@@ -220,12 +359,56 @@ class AppState extends ChangeNotifier {
   Future<void> deleteMedication(int id) async {
     _medications.removeWhere((m) => m.id == id);
     await _saveMedications();
+    await NotificationService.cancelNotification(id);
     notifyListeners();
   }
 
   Future<void> _saveMedications() async {
     final list = _medications.map((m) => m.toJson()).toList();
     await StorageService.saveMedications(list);
+  }
+
+  void checkMedicationReminders() {
+    final now = DateTime.now();
+    final currentMinutes = now.hour * 60 + now.minute;
+
+    for (final med in _medications) {
+      if (med.taken) continue;
+
+      final times = med.scheduledTime.split('&').map((t) => t.trim()).toList();
+
+      for (final timeStr in times) {
+        final scheduledMinutes = _parseTimeToMinutes(timeStr);
+        if (scheduledMinutes == -1) continue;
+
+        final minutesOverdue = currentMinutes - scheduledMinutes;
+
+        if (minutesOverdue > 30 && minutesOverdue < 720) {
+          if (_reminderSettings['phoneAlert'] == true) {
+            NotificationService.showMedicationOverdue(
+              medicationName: med.name,
+              dosage: med.dosage,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  int _parseTimeToMinutes(String timeStr) {
+    final regex = RegExp(r'(\d+):(\d+)\s*(AM|PM)', caseSensitive: false);
+    final match = regex.firstMatch(timeStr);
+
+    if (match == null) return -1;
+
+    int hours = int.parse(match.group(1)!);
+    final minutes = int.parse(match.group(2)!);
+    final period = match.group(3)!.toUpperCase();
+
+    if (period == 'PM' && hours != 12) hours += 12;
+    if (period == 'AM' && hours == 12) hours = 0;
+
+    return hours * 60 + minutes;
   }
 
   // Emergency Contact Methods
@@ -253,12 +436,23 @@ class AppState extends ChangeNotifier {
       _sosHistory = _sosHistory.sublist(0, 50);
     }
     await _saveSOSHistory();
+
+    await NotificationService.showSOSAlert(
+      reason: event.reason,
+      contactsCount: event.contactsNotified,
+    );
+
     notifyListeners();
   }
 
   Future<void> _saveSOSHistory() async {
     final list = _sosHistory.map((s) => s.toJson()).toList();
     await StorageService.saveSOSHistory(list);
+  }
+
+  Future<void> _saveHealthAlerts() async {
+    final list = _healthAlerts.map((a) => a.toJson()).toList();
+    await StorageService.saveHealthAlerts(list);
   }
 
   // Reminder Settings Methods
@@ -445,5 +639,41 @@ class SOSEventModel {
     status: json['status'],
     contactsNotified: json['contactsNotified'],
     location: json['location'],
+  );
+}
+
+class HealthAlertModel {
+  final String id;
+  final String metric;
+  final String value;
+  final String message;
+  final bool isCritical;
+  final DateTime timestamp;
+
+  HealthAlertModel({
+    required this.id,
+    required this.metric,
+    required this.value,
+    required this.message,
+    required this.isCritical,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'metric': metric,
+    'value': value,
+    'message': message,
+    'isCritical': isCritical,
+    'timestamp': timestamp.toIso8601String(),
+  };
+
+  factory HealthAlertModel.fromJson(Map<String, dynamic> json) => HealthAlertModel(
+    id: json['id'],
+    metric: json['metric'],
+    value: json['value'],
+    message: json['message'],
+    isCritical: json['isCritical'],
+    timestamp: DateTime.parse(json['timestamp']),
   );
 }

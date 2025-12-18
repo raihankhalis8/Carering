@@ -47,6 +47,19 @@ class StorageService {
     return decoded.cast<Map<String, dynamic>>();
   }
 
+  // Health Alerts
+  static Future<void> saveHealthAlerts(List<Map<String, dynamic>> alerts) async {
+    final json = jsonEncode(alerts);
+    await _prefs.setString('health_alerts', json);
+  }
+
+  static List<Map<String, dynamic>> getHealthAlerts() {
+    final json = _prefs.getString('health_alerts');
+    if (json == null) return [];
+    final List<dynamic> decoded = jsonDecode(json);
+    return decoded.cast<Map<String, dynamic>>();
+  }
+
   // Reminder Settings
   static Future<void> saveReminderSettings(Map<String, dynamic> settings) async {
     final json = jsonEncode(settings);

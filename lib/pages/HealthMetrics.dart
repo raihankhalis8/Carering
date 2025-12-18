@@ -1,27 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-
-// Models
-class HeartRateData {
-  final String time;
-  final double bpm;
-
-  HeartRateData({required this.time, required this.bpm});
-}
-
-class StepsData {
-  final String day;
-  final double steps;
-
-  StepsData({required this.day, required this.steps});
-}
-
-class SleepData {
-  final String day;
-  final double hours;
-
-  SleepData({required this.day, required this.hours});
-}
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 
 class HealthMetrics extends StatefulWidget {
   const HealthMetrics({super.key});
@@ -33,36 +13,6 @@ class HealthMetrics extends StatefulWidget {
 class _HealthMetricsState extends State<HealthMetrics>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Mock data
-  final List<HeartRateData> heartRateData = [
-    HeartRateData(time: '6AM', bpm: 68),
-    HeartRateData(time: '9AM', bpm: 72),
-    HeartRateData(time: '12PM', bpm: 75),
-    HeartRateData(time: '3PM', bpm: 70),
-    HeartRateData(time: '6PM', bpm: 74),
-    HeartRateData(time: '9PM', bpm: 69),
-  ];
-
-  final List<StepsData> stepsData = [
-    StepsData(day: 'Mon', steps: 5234),
-    StepsData(day: 'Tue', steps: 6721),
-    StepsData(day: 'Wed', steps: 4856),
-    StepsData(day: 'Thu', steps: 7123),
-    StepsData(day: 'Fri', steps: 5967),
-    StepsData(day: 'Sat', steps: 4234),
-    StepsData(day: 'Sun', steps: 3821),
-  ];
-
-  final List<SleepData> sleepData = [
-    SleepData(day: 'Mon', hours: 7.2),
-    SleepData(day: 'Tue', hours: 6.8),
-    SleepData(day: 'Wed', hours: 7.5),
-    SleepData(day: 'Thu', hours: 7.0),
-    SleepData(day: 'Fri', hours: 6.5),
-    SleepData(day: 'Sat', hours: 8.2),
-    SleepData(day: 'Sun', hours: 7.5),
-  ];
 
   @override
   void initState() {
@@ -114,6 +64,27 @@ class _HealthMetricsState extends State<HealthMetrics>
   }
 
   Widget _buildChartsTab() {
+    final appState = Provider.of<AppState>(context);
+    final healthData = appState.healthData;
+
+    if (healthData == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading health data...'),
+          ],
+        ),
+      );
+    }
+
+    // Generate chart data based on current values
+    final heartRateData = _generateHeartRateData(healthData.heartRate);
+    final stepsData = _generateStepsData(healthData.steps);
+    final bloodSugarData = _generateBloodSugarData(healthData.bloodSugar);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -157,7 +128,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                         gridData: FlGridData(
                           show: true,
                           drawVerticalLine: true,
-                          horizontalInterval: 5,
+                          horizontalInterval: 10,
                           verticalInterval: 1,
                           getDrawingHorizontalLine: (value) {
                             return FlLine(
@@ -179,12 +150,12 @@ class _HealthMetricsState extends State<HealthMetrics>
                             sideTitles: SideTitles(
                               showTitles: true,
                               getTitlesWidget: (value, meta) {
-                                if (value.toInt() >= 0 &&
-                                    value.toInt() < heartRateData.length) {
+                                final times = ['6AM', '9AM', '12PM', '3PM', '6PM', '9PM'];
+                                if (value.toInt() >= 0 && value.toInt() < times.length) {
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
-                                      heartRateData[value.toInt()].time,
+                                      times[value.toInt()],
                                       style: const TextStyle(fontSize: 10),
                                     ),
                                   );
@@ -215,14 +186,12 @@ class _HealthMetricsState extends State<HealthMetrics>
                         ),
                         borderData: FlBorderData(show: false),
                         minX: 0,
-                        maxX: (heartRateData.length - 1).toDouble(),
-                        minY: 60,
-                        maxY: 80,
+                        maxX: 5,
+                        minY: 50,
+                        maxY: 100,
                         lineBarsData: [
                           LineChartBarData(
-                            spots: heartRateData.asMap().entries.map((e) {
-                              return FlSpot(e.key.toDouble(), e.value.bpm);
-                            }).toList(),
+                            spots: heartRateData,
                             isCurved: true,
                             color: const Color(0xFFFAA09A),
                             barWidth: 3,
@@ -246,7 +215,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Average: 72 BPM',
+                          'Current: ${healthData.heartRate} BPM',
                           style: TextStyle(
                             color: Colors.grey[700],
                             fontSize: 14,
@@ -255,7 +224,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Range: 68-75 (Normal)',
+                          'Normal Range: 60-100 BPM',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 13,
@@ -323,12 +292,12 @@ class _HealthMetricsState extends State<HealthMetrics>
                             sideTitles: SideTitles(
                               showTitles: true,
                               getTitlesWidget: (value, meta) {
-                                if (value.toInt() >= 0 &&
-                                    value.toInt() < stepsData.length) {
+                                final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                if (value.toInt() >= 0 && value.toInt() < days.length) {
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
-                                      stepsData[value.toInt()].day,
+                                      days[value.toInt()],
                                       style: const TextStyle(fontSize: 10),
                                     ),
                                   );
@@ -358,21 +327,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                           ),
                         ),
                         borderData: FlBorderData(show: false),
-                        barGroups: stepsData.asMap().entries.map((e) {
-                          return BarChartGroupData(
-                            x: e.key,
-                            barRods: [
-                              BarChartRodData(
-                                toY: e.value.steps,
-                                color: const Color(0xFFB4F8C8),
-                                width: 20,
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(8),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                        barGroups: stepsData,
                       ),
                     ),
                   ),
@@ -389,7 +344,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Daily Avg: 5,422 steps',
+                          'Today: ${healthData.steps} steps',
                           style: TextStyle(
                             color: Colors.grey[700],
                             fontSize: 14,
@@ -398,20 +353,22 @@ class _HealthMetricsState extends State<HealthMetrics>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Goal: 6,000 steps/day',
+                          'Goal: ${healthData.stepsGoal} steps/day',
                           style: TextStyle(
                             color: Colors.grey[700],
                             fontSize: 13,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '💡 You need 578 more steps daily to reach your goal',
-                          style: TextStyle(
-                            color: const Color(0xFFd4b84a),
-                            fontSize: 13,
+                        if (healthData.steps < healthData.stepsGoal) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '💡 ${healthData.stepsGoal - healthData.steps} more steps to reach goal',
+                            style: TextStyle(
+                              color: const Color(0xFFd4b84a),
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -421,7 +378,7 @@ class _HealthMetricsState extends State<HealthMetrics>
           ),
           const SizedBox(height: 16),
 
-          // Sleep Chart
+          // Blood Sugar Chart
           Card(
             elevation: 8,
             shape: RoundedRectangleBorder(
@@ -436,13 +393,13 @@ class _HealthMetricsState extends State<HealthMetrics>
                   Row(
                     children: [
                       Icon(
-                        Icons.bedtime,
+                        Icons.bloodtype,
                         color: const Color(0xFFC8A8E9),
                         size: 24,
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Sleep This Week',
+                        'Blood Sugar Today',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -455,12 +412,12 @@ class _HealthMetricsState extends State<HealthMetrics>
                   // Chart
                   SizedBox(
                     height: 250,
-                    child: BarChart(
-                      BarChartData(
+                    child: LineChart(
+                      LineChartData(
                         gridData: FlGridData(
                           show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: 2,
+                          drawVerticalLine: true,
+                          horizontalInterval: 20,
                           getDrawingHorizontalLine: (value) {
                             return FlLine(
                               color: Colors.grey[300]!,
@@ -474,12 +431,12 @@ class _HealthMetricsState extends State<HealthMetrics>
                             sideTitles: SideTitles(
                               showTitles: true,
                               getTitlesWidget: (value, meta) {
-                                if (value.toInt() >= 0 &&
-                                    value.toInt() < sleepData.length) {
+                                final times = ['6AM', '9AM', '12PM', '3PM', '6PM', '9PM'];
+                                if (value.toInt() >= 0 && value.toInt() < times.length) {
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
-                                      sleepData[value.toInt()].day,
+                                      times[value.toInt()],
                                       style: const TextStyle(fontSize: 10),
                                     ),
                                   );
@@ -509,21 +466,20 @@ class _HealthMetricsState extends State<HealthMetrics>
                           ),
                         ),
                         borderData: FlBorderData(show: false),
-                        barGroups: sleepData.asMap().entries.map((e) {
-                          return BarChartGroupData(
-                            x: e.key,
-                            barRods: [
-                              BarChartRodData(
-                                toY: e.value.hours,
-                                color: const Color(0xFFC8A8E9),
-                                width: 20,
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(8),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                        minX: 0,
+                        maxX: 5,
+                        minY: 70,
+                        maxY: 140,
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: bloodSugarData,
+                            isCurved: true,
+                            color: const Color(0xFFC8A8E9),
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(show: false),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -540,7 +496,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Avg: 7.2 hrs/night',
+                          'Current: ${healthData.bloodSugar} mg/dL',
                           style: TextStyle(
                             color: Colors.grey[700],
                             fontSize: 14,
@@ -549,7 +505,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Goal: 7-9 hours',
+                          'Normal Range: 70-100 mg/dL (fasting)',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 13,
@@ -616,37 +572,7 @@ class _HealthMetricsState extends State<HealthMetrics>
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          '• Heart rate is healthy',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '• Try 6,000 steps daily',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '• Sleep quality excellent',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '• Stay hydrated',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                        ),
+                        _buildInsight(healthData),
                       ],
                     ),
                   ),
@@ -659,50 +585,318 @@ class _HealthMetricsState extends State<HealthMetrics>
     );
   }
 
-  Widget _buildAlertsTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.notifications_none,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No Health Alerts',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your health alerts will appear here',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+  Widget _buildInsight(HealthData data) {
+    final insights = <String>[];
+
+    if (data.heartRate >= 60 && data.heartRate <= 100) {
+      insights.add('• Heart rate is healthy');
+    } else {
+      insights.add('• Monitor heart rate closely');
+    }
+
+    if (data.steps >= data.stepsGoal) {
+      insights.add('• Great job on steps today!');
+    } else {
+      insights.add('• Try ${data.stepsGoal} steps daily');
+    }
+
+    if (data.bloodOxygen >= 95) {
+      insights.add('• Blood oxygen excellent');
+    } else {
+      insights.add('• Blood oxygen needs attention');
+    }
+
+    if (data.bloodSugar >= 70 && data.bloodSugar <= 100) {
+      insights.add('• Blood sugar in normal range');
+    } else {
+      insights.add('• Monitor blood sugar levels');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: insights.map((insight) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text(
+          insight,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 13,
+          ),
         ),
+      )).toList(),
+    );
+  }
+
+  Widget _buildAlertsTab() {
+    final appState = Provider.of<AppState>(context);
+    final healthAlerts = appState.healthAlerts;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.warning,
+                        color: const Color(0xFFd4b84a),
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Recent Health Alerts',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Alerts List or Empty State
+                  if (healthAlerts.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.show_chart,
+                              size: 48,
+                              color: const Color(0xFFB4F8C8),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'All vitals normal',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'No alerts in the last 24 hours',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ...healthAlerts.map((alert) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: alert.isCritical
+                              ? const Color(0xFFFAA09A).withOpacity(0.2)
+                              : const Color(0xFFF4E87C).withOpacity(0.2),
+                          border: Border.all(
+                            color: alert.isCritical
+                                ? const Color(0xFFFAA09A)
+                                : const Color(0xFFF4E87C),
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Alert Icon
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: alert.isCritical
+                                    ? const Color(0xFFFAA09A).withOpacity(0.4)
+                                    : const Color(0xFFF4E87C).withOpacity(0.4),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                _getAlertIcon(alert.metric),
+                                color: alert.isCritical
+                                    ? const Color(0xFFd97066)
+                                    : const Color(0xFFd4b84a),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Alert Details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Metric and Badge
+                                  Row(
+                                    mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        alert.metric,
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: alert.isCritical
+                                              ? const Color(0xFFFAA09A)
+                                              : const Color(0xFFF4E87C),
+                                          borderRadius:
+                                          BorderRadius.circular(16),
+                                        ),
+                                        child: Text(
+                                          alert.isCritical
+                                              ? 'CRITICAL'
+                                              : 'WARNING',
+                                          style: const TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Value
+                                  Text(
+                                    alert.value,
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+
+                                  // Message
+                                  Text(
+                                    alert.message,
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Time
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.access_time,
+                                        size: 14,
+                                        color: Colors.grey[500],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _formatTimestamp(alert.timestamp),
+                                        style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  IconData _getAlertIcon(String metric) {
+    switch (metric) {
+      case 'Heart Rate':
+        return Icons.favorite;
+      case 'Blood Oxygen':
+        return Icons.water_drop;
+      case 'Blood Sugar':
+        return Icons.bloodtype;
+      default:
+        return Icons.show_chart;
+    }
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} min ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hr ago';
+    } else {
+      return '${difference.inDays} day(s) ago';
+    }
+  }
+
+  // Generate chart data based on current values
+  List<FlSpot> _generateHeartRateData(int currentHR) {
+    return [
+      FlSpot(0, (currentHR - 4).toDouble()),
+      FlSpot(1, (currentHR - 2).toDouble()),
+      FlSpot(2, (currentHR + 3).toDouble()),
+      FlSpot(3, (currentHR - 2).toDouble()),
+      FlSpot(4, (currentHR + 2).toDouble()),
+      FlSpot(5, currentHR.toDouble()),
+    ];
+  }
+
+  List<BarChartGroupData> _generateStepsData(int currentSteps) {
+    final baseSteps = (currentSteps * 0.7).toInt();
+    return [
+      BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: (baseSteps + 234).toDouble(), color: const Color(0xFFB4F8C8), width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))]),
+      BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: (baseSteps + 721).toDouble(), color: const Color(0xFFB4F8C8), width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))]),
+      BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: (baseSteps - 144).toDouble(), color: const Color(0xFFB4F8C8), width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))]),
+      BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: (baseSteps + 1123).toDouble(), color: const Color(0xFFB4F8C8), width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))]),
+      BarChartGroupData(x: 4, barRods: [BarChartRodData(toY: (baseSteps + 967).toDouble(), color: const Color(0xFFB4F8C8), width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))]),
+      BarChartGroupData(x: 5, barRods: [BarChartRodData(toY: (baseSteps - 766).toDouble(), color: const Color(0xFFB4F8C8), width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))]),
+      BarChartGroupData(x: 6, barRods: [BarChartRodData(toY: currentSteps.toDouble(), color: const Color(0xFFB4F8C8), width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))]),
+    ];
+  }
+
+  List<FlSpot> _generateBloodSugarData(int currentBS) {
+    return [
+      FlSpot(0, (currentBS - 7).toDouble()),
+      FlSpot(1, (currentBS + 3).toDouble()),
+      FlSpot(2, (currentBS + 10).toDouble()),
+      FlSpot(3, (currentBS - 5).toDouble()),
+      FlSpot(4, (currentBS + 2).toDouble()),
+      FlSpot(5, currentBS.toDouble()),
+    ];
+  }
 }
-
-/*
-IMPORTANT: This code requires the fl_chart package.
-Add to pubspec.yaml:
-
-dependencies:
-  fl_chart: ^0.68.0
-
-Then run: flutter pub get
-*/
-
