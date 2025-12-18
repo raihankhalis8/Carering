@@ -42,7 +42,7 @@ class _HealthMetricsState extends State<HealthMetrics>
               indicatorColor: const Color(0xFF87CEEB),
               indicatorWeight: 3,
               tabs: const [
-                Tab(text: 'Charts'),
+                // Tab(text: 'Charts'),
                 Tab(text: 'Health Alerts'),
               ],
             ),
@@ -53,7 +53,7 @@ class _HealthMetricsState extends State<HealthMetrics>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildChartsTab(),
+                // _buildChartsTab(),
                 _buildAlertsTab(),
               ],
             ),
