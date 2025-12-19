@@ -404,9 +404,45 @@ class _EmergencyContactsState extends State<EmergencyContacts>
     );
   }
 
+  // 🔧 FIX: Added emergency call functionality in SOS History
   Widget _buildHistoryTab() {
     final appState = Provider.of<AppState>(context);
     final sosEvents = appState.sosHistory;
+
+    // Handler untuk emergency call
+    Future<void> handleEmergencyCall() async {
+      final contacts = appState.contacts;
+
+      if (contacts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No emergency contacts available'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Call kontak pertama
+      final firstContact = contacts.first;
+      final success = await CommunicationService.makePhoneCall(firstContact.phone);
+
+      if (!success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to make call. Please check permissions.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Calling ${firstContact.name}...'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -422,22 +458,36 @@ class _EmergencyContactsState extends State<EmergencyContacts>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
+                  // 🔧 Header with Emergency Call Button
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(
-                        Icons.warning,
-                        color: const Color(0xFFd4b84a),
-                        size: 24,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning,
+                            color: const Color(0xFFd4b84a),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'SOS Alert History',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'SOS Alert History',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      if (appState.contacts.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.phone, color: Colors.red),
+                          tooltip: 'Emergency Call',
+                          onPressed: handleEmergencyCall,
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFFAA09A).withOpacity(0.2),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -650,6 +700,72 @@ class _EmergencyContactsState extends State<EmergencyContacts>
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // 🔧 Quick Emergency Call Card
+          if (appState.contacts.isNotEmpty)
+            Card(
+              elevation: 8,
+              color: const Color(0xFFFAA09A).withOpacity(0.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(
+                  color: Color(0xFFFAA09A),
+                  width: 2,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.phone,
+                          color: const Color(0xFFd97066),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Quick Emergency Call',
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: handleEmergencyCall,
+                        icon: const Icon(Icons.phone, size: 24),
+                        label: Text(
+                          'Call ${appState.contacts.first.name}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFAA09A),
+                          foregroundColor: Colors.grey[800],
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

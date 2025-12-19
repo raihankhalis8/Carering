@@ -94,7 +94,6 @@ class AppState extends ChangeNotifier {
 
   void _startHealthUpdates() {
     _updateTimer?.cancel();
-    //TODO REFRESH TIMER
     _updateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _fetchHealthData();
     });
@@ -340,15 +339,19 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // 🔧 FIX: Create new list reference for Provider to detect change
   Future<void> toggleMedicationTaken(int id) async {
     final index = _medications.indexWhere((m) => m.id == id);
     if (index != -1) {
-      _medications[index] = _medications[index].copyWith(
+      final updatedMed = _medications[index].copyWith(
         taken: !_medications[index].taken,
       );
+      // Create new list reference so Provider detects the change
+      _medications = List.from(_medications);
+      _medications[index] = updatedMed;
       await _saveMedications();
 
-      if (_medications[index].taken) {
+      if (updatedMed.taken) {
         await NotificationService.cancelNotification(id);
       }
 
@@ -356,8 +359,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // 🔧 FIX: Create new list instead of modifying in-place
   Future<void> deleteMedication(int id) async {
-    _medications.removeWhere((m) => m.id == id);
+    // Create new list by filtering, changes reference
+    _medications = _medications.where((m) => m.id != id).toList();
     await _saveMedications();
     await NotificationService.cancelNotification(id);
     notifyListeners();

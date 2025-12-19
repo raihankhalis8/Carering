@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
+import '../services/communication_service.dart';
 import 'SOSAlertSystem.dart';
 
 class Dashboard extends StatefulWidget {
@@ -15,15 +16,122 @@ class _DashboardState extends State<Dashboard> {
   String _sosTrigger = 'manual';
   String _sosReason = '';
 
-  void _handleManualSOS() {
-    setState(() {
-      _sosTrigger = 'manual';
-      _sosReason = 'Manual emergency activation';
-      _sosActive = true;
-    });
+  // 🔧 FIX: SOS button now opens phone call directly
+  void _handleManualSOS() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    final contacts = appState.contacts;
+
+    // Check if there are emergency contacts
+    if (contacts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ No emergency contacts available. Please add contacts first.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.phone,
+              color: const Color(0xFFd97066),
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            const Text('Emergency SOS'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildSOSActionItem(
+              icon: Icons.phone,
+              text: 'Call ${contacts.first.name} immediately',
+            ),
+            const SizedBox(height: 8),
+            _buildSOSActionItem(
+              icon: Icons.notifications,
+              text: 'Notify all ${contacts.length} emergency contacts',
+            ),
+            const SizedBox(height: 8),
+            _buildSOSActionItem(
+              icon: Icons.location_on,
+              text: 'Share your current location',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAA09A).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFFAA09A),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: const Color(0xFFd97066),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Press Continue to proceed',
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.phone, size: 20),
+            label: const Text('Call Now'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFAA09A),
+              foregroundColor: Colors.grey[800],
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
 
     // Save to history
-    final appState = Provider.of<AppState>(context, listen: false);
     final now = DateTime.now();
     appState.addSOSEvent(SOSEventModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -36,33 +144,73 @@ class _DashboardState extends State<Dashboard> {
       location: 'Current Location',
     ));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.phone, color: Colors.white),
-            SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Emergency SOS Activated!',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Contacting emergency services...',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    // Show SOS Alert System (notification to all contacts)
+    setState(() {
+      _sosTrigger = 'manual';
+      _sosReason = 'Manual emergency activation';
+      _sosActive = true;
+    });
+
+    // Make phone call to first contact
+    final firstContact = contacts.first;
+    final success = await CommunicationService.makePhoneCall(firstContact.phone);
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to make call. Please check permissions.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
         ),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 5),
-      ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.phone, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '📞 Calling ${firstContact.name}...\n🚨 ${contacts.length} contacts notified',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  Widget _buildSOSActionItem({required IconData icon, required String text}) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFB4F8C8).withOpacity(0.3),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: const Color(0xFF6fbb8a),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -475,7 +623,7 @@ class _DashboardState extends State<Dashboard> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Emergency SOS Button
+                    // Emergency SOS Button - UPDATED
                     Card(
                       elevation: 8,
                       color: const Color(0xFFFAA09A).withOpacity(0.2),
@@ -510,7 +658,7 @@ class _DashboardState extends State<Dashboard> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Press SOS for immediate help',
+                                      'Emergency SOS: Calls contact & notifies all',
                                       style: TextStyle(
                                         color: Colors.grey[700],
                                         fontSize: 12,

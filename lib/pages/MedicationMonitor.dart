@@ -1,464 +1,935 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
+import '../services/communication_service.dart';
+import 'dart:math';
 
-// Models
-class Medication {
-  final int id;
-  final String name;
-  final String dosage;
-  final String scheduledTime;
-  final bool taken;
-
-  Medication({
-    required this.id,
-    required this.name,
-    required this.dosage,
-    required this.scheduledTime,
-    required this.taken,
-  });
+class EmergencyContacts extends StatefulWidget {
+  const EmergencyContacts({super.key});
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is Medication &&
-              runtimeType == other.runtimeType &&
-              id == other.id &&
-              name == other.name &&
-              dosage == other.dosage &&
-              scheduledTime == other.scheduledTime &&
-              taken == other.taken;
-
-  @override
-  int get hashCode =>
-      id.hashCode ^
-      name.hashCode ^
-      dosage.hashCode ^
-      scheduledTime.hashCode ^
-      taken.hashCode;
+  State<EmergencyContacts> createState() => _EmergencyContactsState();
 }
 
-// Medication Status Result
-class MedicationStatus {
-  final String status; // 'taken', 'upcoming', 'due', 'overdue'
-  final Color color;
-  final Color bgColor;
-  final String message;
-
-  MedicationStatus({
-    required this.status,
-    required this.color,
-    required this.bgColor,
-    required this.message,
-  });
-}
-
-// Helper functions
-int parseTimeToMinutes(String timeStr) {
-  final regex = RegExp(r'(\d+):(\d+)\s*(AM|PM)', caseSensitive: false);
-  final match = regex.firstMatch(timeStr);
-
-  if (match == null) return -1;
-
-  int hours = int.parse(match.group(1)!);
-  final minutes = int.parse(match.group(2)!);
-  final period = match.group(3)!.toUpperCase();
-
-  if (period == 'PM' && hours != 12) hours += 12;
-  if (period == 'AM' && hours == 12) hours = 0;
-
-  return hours * 60 + minutes;
-}
-
-int getCurrentMinutes() {
-  final now = DateTime.now();
-  return now.hour * 60 + now.minute;
-}
-
-// Medication Monitor Widget
-class MedicationMonitor extends StatefulWidget {
-  final List<Medication> medications;
-  final Function(Medication) onOverdueAlert;
-
-  const MedicationMonitor({
-    super.key,
-    required this.medications,
-    required this.onOverdueAlert,
-  });
-
-  @override
-  State<MedicationMonitor> createState() => _MedicationMonitorState();
-}
-
-class _MedicationMonitorState extends State<MedicationMonitor> {
-  final Set<int> _checkedMedications = {};
-  Timer? _checkTimer;
-  List<Medication>? _previousMedications;
+class _EmergencyContactsState extends State<EmergencyContacts>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  bool _showAddContact = false;
 
   @override
   void initState() {
     super.initState();
-    _previousMedications = widget.medications;
-    _checkOverdueMedications();
-    _startMonitoring();
-  }
-
-  @override
-  void didUpdateWidget(MedicationMonitor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Check if medications list changed
-    if (_medicationsChanged(oldWidget.medications, widget.medications)) {
-      _previousMedications = widget.medications;
-      _checkOverdueMedications();
-    }
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
-    _checkTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
-  bool _medicationsChanged(
-      List<Medication> oldMeds, List<Medication> newMeds) {
-    if (oldMeds.length != newMeds.length) return true;
-    for (int i = 0; i < oldMeds.length; i++) {
-      if (oldMeds[i] != newMeds[i]) return true;
+  @override
+  Widget build(BuildContext context) {
+    if (_showAddContact) {
+      return _AddEmergencyContact(
+        onBack: () => setState(() => _showAddContact = false),
+        onSave: (contact) {
+          final appState = Provider.of<AppState>(context, listen: false);
+          appState.addContact(contact);
+          setState(() => _showAddContact = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Emergency contact added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+      );
     }
-    return false;
-  }
 
-  void _startMonitoring() {
-    // Check every minute
-    _checkTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      _checkOverdueMedications();
-    });
-  }
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: Column(
+        children: [
+          // Tab Bar
+          Container(
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: Colors.black87,
+              unselectedLabelColor: Colors.grey[600],
+              indicatorColor: const Color(0xFF87CEEB),
+              indicatorWeight: 3,
+              tabs: const [
+                Tab(text: 'Contacts'),
+                Tab(text: 'SOS History'),
+              ],
+            ),
+          ),
 
-  void _checkOverdueMedications() {
-    final currentMinutes = getCurrentMinutes();
-
-    for (final med in widget.medications) {
-      // Skip if already taken
-      if (med.taken) {
-        _checkedMedications.remove(med.id);
-        continue;
-      }
-
-      // Skip if already alerted
-      if (_checkedMedications.contains(med.id)) {
-        continue;
-      }
-
-      // Handle medications with multiple times (e.g., "8:00 AM & 6:00 PM")
-      final times = med.scheduledTime.split('&').map((t) => t.trim()).toList();
-
-      for (final timeStr in times) {
-        final scheduledMinutes = parseTimeToMinutes(timeStr);
-        if (scheduledMinutes == -1) continue;
-
-        final minutesOverdue = currentMinutes - scheduledMinutes;
-
-        // Check if medication is overdue by more than 30 minutes
-        // and not from yesterday (< 12 hours = 720 minutes)
-        if (minutesOverdue > 30 && minutesOverdue < 720) {
-          // Mark as checked so we don't alert again
-          setState(() {
-            _checkedMedications.add(med.id);
-          });
-
-          // Show notification
-          _showOverdueNotification(med, timeStr);
-
-          // Call the callback
-          widget.onOverdueAlert(med);
-        }
-      }
-    }
-  }
-
-  void _showOverdueNotification(Medication med, String timeStr) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+          // Tab Content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
               children: [
-                const Icon(Icons.medication, color: Colors.white),
-                const SizedBox(width: 8),
+                _buildContactsTab(),
+                _buildHistoryTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactsTab() {
+    final appState = Provider.of<AppState>(context);
+    final contacts = appState.contacts;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          // Info Alert
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF87CEEB).withOpacity(0.2),
+              border: Border.all(
+                color: const Color(0xFF87CEEB),
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: const Color(0xFF5ba3c7),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Medication Reminder: ${med.name}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                    'These contacts get notified when you press SOS. They can see your location.',
+                    style: TextStyle(
+                      color: Colors.grey[700],
                       fontSize: 14,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'You missed your ${med.dosage} dose scheduled for $timeStr. Please take it now.',
-              style: const TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+
+          // Contact Cards
+          if (contacts.isEmpty)
+            Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.person_add,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No emergency contacts yet',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add your first contact below',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...contacts.map((contact) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Card(
+                elevation: 8,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      // Contact Info
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 32,
+                            backgroundColor: contact.color,
+                            child: Text(
+                              contact.initials,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  contact.name,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  contact.relationship,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  contact.phone,
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete Contact?'),
+                                  content: Text(
+                                    'Are you sure you want to delete ${contact.name}?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        appState.deleteContact(contact.id);
+                                        Navigator.pop(context);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Contact deleted'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      },
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Action Buttons
+                      Column(
+                        children: [
+                          // Call Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final success = await CommunicationService.makePhoneCall(contact.phone);
+                                if (!success && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Unable to make call. Please check permissions.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                } else if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Calling ${contact.name}...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.phone, size: 24),
+                              label: const Text(
+                                'Call',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFB4F8C8),
+                                foregroundColor: Colors.grey[800],
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // WhatsApp Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final success = await CommunicationService.openWhatsApp(
+                                  contact.phone,
+                                  message: '🚨 Emergency! Please check on me.',
+                                );
+                                if (!success && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('WhatsApp not available'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                } else if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Opening WhatsApp for ${contact.name}...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.chat, size: 24),
+                              label: const Text(
+                                'WhatsApp',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.black87,
+                                side: const BorderSide(
+                                  color: Color(0xFF87CEEB),
+                                  width: 2,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )),
+
+          // Add Contact Button
+          Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: Colors.grey[300]!,
+                width: 2,
+              ),
             ),
-          ],
-        ),
-        backgroundColor: const Color(0xFFd97066),
-        duration: const Duration(seconds: 10),
-        action: SnackBarAction(
-          label: 'Dismiss',
-          textColor: Colors.white,
-          onPressed: () {},
-        ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _showAddContact = true),
+                  icon: const Icon(Icons.person_add, size: 24),
+                  label: const Text(
+                    'Add Contact',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black87,
+                    side: const BorderSide(
+                      color: Color(0xFF87CEEB),
+                      width: 2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // This is a monitoring component without UI
-    return const SizedBox.shrink();
-  }
-}
+  // 🔧 FIX: Added emergency call functionality in SOS History
+  Widget _buildHistoryTab() {
+    final appState = Provider.of<AppState>(context);
+    final sosEvents = appState.sosHistory;
 
-// Helper function to get medication status
-MedicationStatus getMedicationStatus(String scheduledTime, bool taken) {
-  if (taken) {
-    return MedicationStatus(
-      status: 'taken',
-      color: const Color(0xFF6fbb8a),
-      bgColor: const Color(0xFFB4F8C8).withOpacity(0.4),
-      message: 'Taken',
-    );
-  }
+    // Handler untuk emergency call
+    Future<void> handleEmergencyCall() async {
+      final contacts = appState.contacts;
 
-  final currentMinutes = getCurrentMinutes();
+      if (contacts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No emergency contacts available'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
-  // Handle multiple times
-  final times = scheduledTime.split('&').map((t) => t.trim()).toList();
-  String closestStatus = 'upcoming';
-  int closestMinutesDiff = 999999;
+      // Call kontak pertama
+      final firstContact = contacts.first;
+      final success = await CommunicationService.makePhoneCall(firstContact.phone);
 
-  for (final timeStr in times) {
-    final scheduledMinutes = parseTimeToMinutes(timeStr);
-    if (scheduledMinutes == -1) continue;
-
-    final minutesDiff = currentMinutes - scheduledMinutes;
-
-    if (minutesDiff.abs() < closestMinutesDiff.abs()) {
-      closestMinutesDiff = minutesDiff;
-
-      if (minutesDiff > 30) {
-        closestStatus = 'overdue';
-      } else if (minutesDiff >= -15 && minutesDiff <= 30) {
-        closestStatus = 'due';
-      } else {
-        closestStatus = 'upcoming';
+      if (!success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to make call. Please check permissions.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Calling ${firstContact.name}...'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     }
-  }
 
-  switch (closestStatus) {
-    case 'overdue':
-      return MedicationStatus(
-        status: 'overdue',
-        color: const Color(0xFFd97066),
-        bgColor: const Color(0xFFFAA09A).withOpacity(0.4),
-        message: 'Overdue!',
-      );
-    case 'due':
-      return MedicationStatus(
-        status: 'due',
-        color: const Color(0xFFd4b84a),
-        bgColor: const Color(0xFFF4E87C).withOpacity(0.4),
-        message: 'Due now',
-      );
-    case 'upcoming':
-    default:
-      return MedicationStatus(
-        status: 'upcoming',
-        color: Colors.grey[600]!,
-        bgColor: Colors.grey[100]!,
-        message: 'Upcoming',
-      );
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 🔧 Header with Emergency Call Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning,
+                            color: const Color(0xFFd4b84a),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'SOS Alert History',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (appState.contacts.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.phone, color: Colors.red),
+                          tooltip: 'Emergency Call',
+                          onPressed: handleEmergencyCall,
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFFAA09A).withOpacity(0.2),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Events List or Empty State
+                  if (sosEvents.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.history,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No SOS alerts',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Your emergency history will appear here',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ...sosEvents.map((event) => Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Icon
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: event.trigger == 'automatic'
+                                  ? const Color(0xFFF4E87C).withOpacity(0.4)
+                                  : const Color(0xFFFAA09A).withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.warning,
+                              color: event.trigger == 'automatic'
+                                  ? const Color(0xFFd4b84a)
+                                  : const Color(0xFFd97066),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Event Details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Date/Time and Status
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${event.date} at ${event.time}',
+                                            style: const TextStyle(
+                                              color: Colors.black87,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: event.trigger == 'automatic'
+                                                  ? const Color(0xFFF4E87C)
+                                                  : const Color(0xFFFAA09A),
+                                              borderRadius:
+                                              BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              event.trigger == 'automatic'
+                                                  ? 'AUTO'
+                                                  : 'MANUAL',
+                                              style: TextStyle(
+                                                color: Colors.grey[800],
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: event.status == 'resolved'
+                                              ? const Color(0xFFB4F8C8)
+                                              : const Color(0xFFFAA09A),
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        event.status,
+                                        style: TextStyle(
+                                          color: event.status == 'resolved'
+                                              ? const Color(0xFF6fbb8a)
+                                              : const Color(0xFFd97066),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Reason
+                                Text(
+                                  event.reason,
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Details
+                                Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.phone,
+                                          size: 16,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${event.contactsNotified} contacts notified',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.location_on,
+                                          size: 16,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            event.location,
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 🔧 Quick Emergency Call Card
+          if (appState.contacts.isNotEmpty)
+            Card(
+              elevation: 8,
+              color: const Color(0xFFFAA09A).withOpacity(0.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(
+                  color: Color(0xFFFAA09A),
+                  width: 2,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.phone,
+                          color: const Color(0xFFd97066),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Quick Emergency Call',
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: handleEmergencyCall,
+                        icon: const Icon(Icons.phone, size: 24),
+                        label: Text(
+                          'Call ${appState.contacts.first.name}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFAA09A),
+                          foregroundColor: Colors.grey[800],
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
-// Example usage in parent widget:
-/*
-class MedicationScreen extends StatefulWidget {
+// Add Emergency Contact Widget
+class _AddEmergencyContact extends StatefulWidget {
+  final VoidCallback onBack;
+  final Function(EmergencyContactModel) onSave;
+
+  const _AddEmergencyContact({
+    required this.onBack,
+    required this.onSave,
+  });
+
   @override
-  State<MedicationScreen> createState() => _MedicationScreenState();
+  State<_AddEmergencyContact> createState() => _AddEmergencyContactState();
 }
 
-class _MedicationScreenState extends State<MedicationScreen> {
-  List<Medication> medications = [
-    Medication(
-      id: 1,
-      name: 'Aspirin',
-      dosage: '100mg',
-      scheduledTime: '8:00 AM',
-      taken: false,
-    ),
-    Medication(
-      id: 2,
-      name: 'Vitamin D',
-      dosage: '1000 IU',
-      scheduledTime: '12:00 PM & 6:00 PM',
-      taken: false,
-    ),
-  ];
+class _AddEmergencyContactState extends State<_AddEmergencyContact> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _relationshipController = TextEditingController();
+  final _phoneController = TextEditingController();
 
-  void handleOverdueAlert(Medication med) {
-    print('⏰ Medication overdue: ${med.name}');
-    // Handle overdue medication logic
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _relationshipController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _handleSubmit() {
+    if (_formKey.currentState!.validate()) {
+      final initials = _nameController.text
+          .split(' ')
+          .map((n) => n.isNotEmpty ? n[0] : '')
+          .join('')
+          .toUpperCase();
+
+      final colors = [
+        Colors.pink,
+        Colors.blue,
+        Colors.green,
+        Colors.purple,
+        Colors.orange,
+        Colors.teal,
+      ];
+
+      final contact = EmergencyContactModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text,
+        relationship: _relationshipController.text,
+        phone: _phoneController.text,
+        initials: initials,
+        color: colors[Random().nextInt(colors.length)],
+      );
+
+      widget.onSave(contact);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all fields'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Your medication list UI
-          YourMedicationList(),
-
-          // Invisible medication monitor
-          MedicationMonitor(
-            medications: medications,
-            onOverdueAlert: handleOverdueAlert,
-          ),
-        ],
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onBack,
+        ),
+        title: const Text('Add Emergency Contact'),
+        backgroundColor: const Color(0xFF87CEEB),
       ),
-    );
-  }
-}
-*/
-
-// Widget to display medication status badge
-class MedicationStatusBadge extends StatelessWidget {
-  final String scheduledTime;
-  final bool taken;
-
-  const MedicationStatusBadge({
-    super.key,
-    required this.scheduledTime,
-    required this.taken,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final status = getMedicationStatus(scheduledTime, taken);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: status.bgColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (status.status == 'overdue')
-            const Icon(Icons.warning, size: 14, color: Color(0xFFd97066))
-          else if (status.status == 'due')
-            const Icon(Icons.access_time, size: 14, color: Color(0xFFd4b84a))
-          else if (status.status == 'taken')
-              const Icon(Icons.check_circle, size: 14, color: Color(0xFF6fbb8a)),
-          if (status.status != 'upcoming') const SizedBox(width: 4),
-          Text(
-            status.message,
-            style: TextStyle(
-              color: status.color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Example of medication card with status
-class MedicationCard extends StatelessWidget {
-  final Medication medication;
-  final VoidCallback onMarkTaken;
-
-  const MedicationCard({
-    super.key,
-    required this.medication,
-    required this.onMarkTaken,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    medication.name,
-                    style: const TextStyle(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name *',
+                  hintText: 'Enter contact name',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _relationshipController,
+                decoration: const InputDecoration(
+                  labelText: 'Relationship *',
+                  hintText: 'e.g., Daughter, Son, Doctor',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a relationship';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number *',
+                  hintText: '(555) 123-4567',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a phone number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: _handleSubmit,
+                  icon: const Icon(Icons.person_add, size: 24),
+                  label: const Text(
+                    'Save Contact',
+                    style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB4F8C8),
+                    foregroundColor: Colors.grey[800],
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
-                MedicationStatusBadge(
-                  scheduledTime: medication.scheduledTime,
-                  taken: medication.taken,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              medication.dosage,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  medication.scheduledTime,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            if (!medication.taken) ...[
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: onMarkTaken,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFB4F8C8),
-                  foregroundColor: Colors.grey[800],
-                ),
-                child: const Text('Mark as Taken'),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
-

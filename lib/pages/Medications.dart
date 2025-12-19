@@ -17,7 +17,6 @@ class _MedicationsState extends State<Medications> {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final medications = appState.medications;
-    final reminderSettings = appState.reminderSettings;
 
     if (_showAddMedication) {
       return _AddMedicationScreen(
@@ -360,8 +359,31 @@ class _MedicationsState extends State<Medications> {
                                         children: [
                                           Expanded(
                                             child: ElevatedButton(
-                                              onPressed: () =>
-                                                  appState.toggleMedicationTaken(med.id),
+                                              onPressed: () {
+                                                // FIXED: Force update state immediately
+                                                appState.toggleMedicationTaken(med.id);
+                                                setState(() {}); // Force rebuild
+
+                                                // if(med.taken){
+                                                //   appState.updateMedicationTaken(med.id, false);
+                                                // }else{
+                                                //   appState.updateMedicationTaken(med.id, true);
+                                                // }
+                                                // Show snackbar feedback
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      med.taken
+                                                          ? 'Medication marked as not taken'
+                                                          : 'Medication marked as taken',
+                                                    ),
+                                                    backgroundColor: med.taken
+                                                        ? Colors.orange
+                                                        : Colors.green,
+                                                    duration: const Duration(seconds: 2),
+                                                  ),
+                                                );
+                                              },
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: med.taken
                                                     ? Colors.white
@@ -478,102 +500,9 @@ class _MedicationsState extends State<Medications> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // Reminder Settings
-              Card(
-                elevation: 8,
-                color: const Color(0xFF87CEEB).withOpacity(0.2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(
-                    color: Color(0xFF87CEEB),
-                    width: 2,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            color: const Color(0xFF5ba3c7),
-                            size: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Reminders',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildReminderItem(
-                        context,
-                        'Ring Vibration',
-                        reminderSettings['ringVibration'] ?? true,
-                            (value) {
-                          final updated = Map<String, dynamic>.from(reminderSettings);
-                          updated['ringVibration'] = value;
-                          appState.updateReminderSettings(updated);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      _buildReminderItem(
-                        context,
-                        'Phone Alert',
-                        reminderSettings['phoneAlert'] ?? true,
-                            (value) {
-                          final updated = Map<String, dynamic>.from(reminderSettings);
-                          updated['phoneAlert'] = value;
-                          appState.updateReminderSettings(updated);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildReminderItem(
-      BuildContext context,
-      String title,
-      bool value,
-      Function(bool) onChanged,
-      ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey[700],
-              fontSize: 14,
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: const Color(0xFF6fbb8a),
-          ),
-        ],
       ),
     );
   }
